@@ -63,9 +63,9 @@ const Header: React.FC = () => {
                 )}
 
                 {isXO ? (
-                    <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg border border-white/5">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse-dot" />
-                        <span className="text-xs font-mono font-semibold text-white">
+                    <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg border border-white/5 max-w-[120px]">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse-dot shrink-0" />
+                        <span className="text-xs font-mono font-semibold text-white truncate">
                             {alias || (address ? address.slice(0, 6) + '...' + address.slice(-4) : '')}
                         </span>
                     </div>
