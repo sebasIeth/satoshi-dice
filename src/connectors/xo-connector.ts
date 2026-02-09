@@ -1,10 +1,11 @@
 import { createConnector } from 'wagmi';
 import { XOConnectProvider } from 'xo-connect';
-import { baseSepolia } from 'wagmi/chains';
 import type { Address } from 'viem';
+import { activeChain } from '../config';
 
-const CHAIN_ID_HEX = '0x14a34';
-const RPC_URL = 'https://sepolia.base.org';
+const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
+const CHAIN_ID_HEX = isMainnet ? '0x2105' : '0x14a34'; // 8453 or 84532
+const RPC_URL = isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org';
 
 let xoAlias: string | null = null;
 
@@ -35,7 +36,7 @@ export function xoConnector() {
       const client = await provider.getClient();
       xoAlias = client?.alias || null;
 
-      const chainId = baseSepolia.id;
+      const chainId = activeChain.id;
 
       config.emitter.emit('connect', { accounts, chainId });
 
@@ -58,7 +59,7 @@ export function xoConnector() {
     },
 
     async getChainId() {
-      return baseSepolia.id;
+      return activeChain.id;
     },
 
     async getProvider() {
