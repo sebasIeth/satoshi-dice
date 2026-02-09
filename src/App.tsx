@@ -10,6 +10,7 @@ import Toast, { showToast } from './components/Toast';
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits, decodeEventLog } from 'viem';
 import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
+import { activeChain } from './config';
 import { saveBet } from './api';
 import { useGaslessRoll } from './hooks/useGaslessRoll';
 
@@ -22,6 +23,7 @@ function App() {
     abi: USDC_ABI,
     functionName: 'balanceOf',
     args: [address!],
+    chainId: activeChain.id,
     query: { enabled: !!address, refetchInterval: 2000 }
   });
 
@@ -33,6 +35,7 @@ function App() {
     abi: USDC_ABI,
     functionName: 'balanceOf',
     args: [DICE_GAME_ADDRESS],
+    chainId: activeChain.id,
     query: { refetchInterval: 5000 }
   });
   const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
@@ -160,7 +163,8 @@ function App() {
   const payoutOverVal = (betAmount * (99 / winChanceOver));
   const payoutOver = payoutOverVal.toFixed(2);
 
-  const sufficientLiquidity = bankrollAmount >= Math.max(payoutUnderVal, payoutOverVal);
+  const canPayUnder = bankrollAmount >= payoutUnderVal;
+  const canPayOver = bankrollAmount >= payoutOverVal;
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background text-white font-sans selection:bg-primary/30 flex flex-col items-center">
@@ -171,7 +175,7 @@ function App() {
         <main className="flex-1 flex flex-col items-center justify-start py-4 gap-4 w-full">
 
           {/* Liquidity Warning */}
-          {!sufficientLiquidity && (
+          {(!canPayUnder || !canPayOver) && (
             <div className="w-full px-4">
               <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-3 rounded-xl text-xs text-center font-mono">
                 Contract Low Funds. House cannot pay out.
@@ -197,7 +201,8 @@ function App() {
             onRollUnder={() => handleRoll('under')}
             onRollOver={() => handleRoll('over')}
             targetValue={targetValue}
-            disabled={isRolling || !sufficientLiquidity}
+            disabledUnder={isRolling || !canPayUnder}
+            disabledOver={isRolling || !canPayOver}
             isRolling={isRolling}
             payoutUnder={payoutUnder}
             payoutOver={payoutOver}

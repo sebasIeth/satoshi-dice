@@ -29,6 +29,7 @@ export function useGaslessRoll() {
     abi: USDC_ABI,
     functionName: 'nonces',
     args: [address!],
+    chainId: activeChain.id,
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 

@@ -4,6 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { activeChain } from '../config';
 import { getXOAlias } from '../connectors/xo-connector';
 
 const Header: React.FC = () => {
@@ -14,6 +15,7 @@ const Header: React.FC = () => {
         abi: USDC_ABI,
         functionName: 'balanceOf',
         args: [DICE_GAME_ADDRESS],
+        chainId: activeChain.id,
         query: { refetchInterval: 5000 }
     });
 
@@ -22,6 +24,7 @@ const Header: React.FC = () => {
         abi: USDC_ABI,
         functionName: 'balanceOf',
         args: [address!],
+        chainId: activeChain.id,
         query: { enabled: !!address, refetchInterval: 2000 }
     });
 

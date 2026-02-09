@@ -7,23 +7,24 @@ interface ActionButtonsProps {
     onRollUnder: () => void;
     onRollOver: () => void;
     targetValue: number;
-    disabled: boolean;
+    disabledUnder: boolean;
+    disabledOver: boolean;
     isRolling?: boolean;
     payoutUnder: string;
     payoutOver: string;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, targetValue, disabled, isRolling, payoutUnder, payoutOver }) => {
+const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, targetValue, disabledUnder, disabledOver, isRolling, payoutUnder, payoutOver }) => {
     return (
         <div className="w-full flex gap-3 px-4 mt-2">
             {/* ROLL UNDER */}
             <motion.button
-                whileTap={!disabled ? { scale: 0.95 } : undefined}
+                whileTap={!disabledUnder ? { scale: 0.95 } : undefined}
                 onClick={onRollUnder}
-                disabled={disabled}
+                disabled={disabledUnder}
                 className={clsx(
                     "flex-1 p-4 rounded-2xl relative overflow-hidden transition-all border",
-                    disabled
+                    disabledUnder
                         ? "opacity-40 cursor-not-allowed bg-surface border-white/5"
                         : "bg-gradient-to-br from-green-500/10 to-surface border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.1)] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)] hover:border-green-500/30 active:shadow-[0_0_30px_rgba(34,197,94,0.3)] cursor-pointer"
                 )}
@@ -52,12 +53,12 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, 
 
             {/* ROLL OVER */}
             <motion.button
-                whileTap={!disabled ? { scale: 0.95 } : undefined}
+                whileTap={!disabledOver ? { scale: 0.95 } : undefined}
                 onClick={onRollOver}
-                disabled={disabled}
+                disabled={disabledOver}
                 className={clsx(
                     "flex-1 p-4 rounded-2xl relative overflow-hidden transition-all border",
-                    disabled
+                    disabledOver
                         ? "opacity-40 cursor-not-allowed bg-surface border-white/5"
                         : "bg-gradient-to-br from-secondary/10 to-surface border-secondary/20 shadow-[0_0_20px_rgba(0,243,255,0.1)] hover:shadow-[0_0_30px_rgba(0,243,255,0.2)] hover:border-secondary/30 active:shadow-[0_0_30px_rgba(0,243,255,0.3)] cursor-pointer"
                 )}
