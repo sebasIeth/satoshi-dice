@@ -23,6 +23,14 @@ export function useGaslessRoll() {
   const [relayTxHash, setRelayTxHash] = useState<`0x${string}` | undefined>();
   const [relayError, setRelayError] = useState<Error | null>(null);
 
+  // Read USDC name for EIP-712 domain
+  const { data: usdcName } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: USDC_ABI,
+    functionName: 'name',
+    chainId: activeChain.id,
+  });
+
   // Read USDC nonce for permit
   const { data: nonce } = useReadContract({
     address: USDC_ADDRESS,
@@ -35,7 +43,7 @@ export function useGaslessRoll() {
 
   const gaslessRoll = async (target: number, isUnder: boolean, betAmount: number) => {
     if (!address) throw new Error('Wallet not connected');
-    if (nonce === undefined) throw new Error('Nonce not loaded');
+    if (nonce === undefined || !usdcName) throw new Error('Contract data not loaded');
 
     setIsRelaying(true);
     setRelayTxHash(undefined);
@@ -48,7 +56,7 @@ export function useGaslessRoll() {
       // Sign EIP-712 Permit
       const signature = await signTypedDataAsync({
         domain: {
-          name: 'USDC',
+          name: usdcName,
           version: '2',
           chainId: activeChain.id,
           verifyingContract: USDC_ADDRESS,
