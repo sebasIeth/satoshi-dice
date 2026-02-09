@@ -20,8 +20,11 @@ app.use(async (_req, _res, next) => {
   }
 });
 
+// Routes with /api prefix (local dev) and without (Vercel strips /api)
 app.use('/api/bets', betsRouter);
 app.use('/api/relay', relayRouter);
+app.use('/bets', betsRouter);
+app.use('/relay', relayRouter);
 
 // Local dev: listen on port
 if (process.env.NODE_ENV !== 'production') {
