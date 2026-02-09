@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import { useConnect, useAccount } from 'wagmi';
-import { isXOAvailable } from '../connectors/xo-connector';
 
 export default function XOAutoConnect({ children }: { children?: ReactNode }) {
   const { connectAsync, connectors } = useConnect();
@@ -9,20 +8,21 @@ export default function XOAutoConnect({ children }: { children?: ReactNode }) {
   useEffect(() => {
     if (isConnected) return;
 
-    const timeout = setTimeout(async () => {
-      if (!isXOAvailable()) return;
+    const xo = connectors.find((c) => c.id === 'xo-connect');
+    if (!xo) return;
 
-      const xo = connectors.find((c) => c.id === 'xo-connect');
-      if (!xo) return;
+    let cancelled = false;
 
-      try {
-        await connectAsync({ connector: xo });
-      } catch (e) {
-        console.error('[XOAutoConnect] connection failed:', e);
+    // XOConnectProvider.connect() internamente espera hasta 5s
+    // a que window["XOConnect"] aparezca, así que no necesitamos
+    // chequear isXOAvailable() antes.
+    connectAsync({ connector: xo }).catch((e) => {
+      if (!cancelled) {
+        console.debug('[XOAutoConnect] not in XO context or connection failed:', e?.message);
       }
-    }, 300);
+    });
 
-    return () => clearTimeout(timeout);
+    return () => { cancelled = true; };
   }, [isConnected, connectors, connectAsync]);
 
   return <>{children}</>;

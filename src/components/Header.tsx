@@ -4,10 +4,9 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
-import { isXOAvailable } from '../connectors/xo-connector';
 
 const Header: React.FC = () => {
-    const { address, isConnected, isConnecting } = useAccount();
+    const { address, isConnected, isConnecting, connector } = useAccount();
 
     const { data: bankroll } = useReadContract({
         address: USDC_ADDRESS,
@@ -18,7 +17,9 @@ const Header: React.FC = () => {
     });
 
     const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
-    const inXO = isXOAvailable();
+
+    // Detectamos XO por el connector activo, no por window.XOConnect
+    const isXO = connector?.id === 'xo-connect';
 
     const truncatedAddress = address
         ? `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -41,15 +42,13 @@ const Header: React.FC = () => {
                 </div>
             </div>
 
-            {inXO ? (
-                isConnected ? (
-                    <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-sm font-mono text-white">{truncatedAddress}</span>
-                    </div>
-                ) : isConnecting ? (
-                    <span className="text-sm text-gray-400 font-mono">Connecting...</span>
-                ) : null
+            {isXO ? (
+                <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-sm font-mono text-white">{truncatedAddress}</span>
+                </div>
+            ) : isConnecting && !isConnected ? (
+                <span className="text-sm text-gray-400 font-mono">Connecting...</span>
             ) : (
                 <ConnectButton showBalance={true} accountStatus="address" />
             )}
