@@ -4,10 +4,12 @@ import GameDial from './components/GameDial';
 import BetControls from './components/BetControls';
 import ActionButtons from './components/ActionButtons';
 import History, { type HistoryItem } from './components/History';
+import GlobalHistory from './components/GlobalHistory';
 import ProvablyFair from './components/ProvablyFair';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256, decodeEventLog } from 'viem';
 import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
+import { saveBet } from './api';
 
 function App() {
   const { address, isConnected } = useAccount();
@@ -45,7 +47,7 @@ function App() {
   });
   const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
 
-  const [betAmount, setBetAmount] = useState<number>(0.5);
+  const betAmount = 0.10;
   const [targetValue, setTargetValue] = useState<number>(50);
   const [result, setResult] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -60,6 +62,9 @@ function App() {
   useEffect(() => {
     targetValueRef.current = targetValue;
   }, [targetValue]);
+
+  const directionRef = useRef<'under' | 'over'>('under');
+  const [betCount, setBetCount] = useState(0);
 
   // Contract Writes
   // Split into separate hooks to avoid state conflicts
@@ -110,6 +115,18 @@ function App() {
               amount: isWin ? payout : amount
             };
             setHistory(prev => [newItem, ...prev]);
+
+            // Persist to MongoDB (fire-and-forget)
+            saveBet({
+              player: address!,
+              amount,
+              result: Number(roll),
+              target: currentTarget,
+              direction: directionRef.current,
+              isWin: isWin || false,
+              payout,
+              txHash: rollReceipt.transactionHash,
+            }).then(() => setBetCount(c => c + 1));
 
             refetchAllowance();
           }
@@ -163,6 +180,7 @@ function App() {
     }
 
     setResult(null);
+    directionRef.current = direction;
 
     // Contract: roll(uint8 target, bool isUnder, uint256 amount)
     const isUnder = direction === 'under';
@@ -226,7 +244,6 @@ function App() {
 
           <BetControls
             betAmount={betAmount}
-            setBetAmount={setBetAmount}
             targetValue={targetValue}
           />
 
@@ -252,6 +269,8 @@ function App() {
           )}
 
           <History history={history} />
+
+          <GlobalHistory refreshKey={betCount} />
 
           <div className="mt-auto w-full">
             <ProvablyFair lastResult={lastRollResult} />
