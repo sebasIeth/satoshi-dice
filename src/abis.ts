@@ -8,6 +8,8 @@ export const USDC_ABI = parseAbi([
   'function balanceOf(address account) external view returns (uint256)',
   'function decimals() external view returns (uint8)',
   'function transfer(address recipient, uint256 amount) external returns (bool)',
+  'function nonces(address owner) external view returns (uint256)',
+  'function name() external view returns (string)',
 ]);
 
 export const DICE_GAME_ABI = [
@@ -139,7 +141,23 @@ export const DICE_GAME_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "player", "type": "address" },
+      { "internalType": "uint8", "name": "target", "type": "uint8" },
+      { "internalType": "bool", "name": "isUnder", "type": "bool" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+      { "internalType": "uint8", "name": "v", "type": "uint8" },
+      { "internalType": "bytes32", "name": "r", "type": "bytes32" },
+      { "internalType": "bytes32", "name": "s", "type": "bytes32" }
+    ],
+    "name": "rollWithPermit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;
 
-export const DICE_GAME_ADDRESS = '0x84515c689837bbbcf7d6062a232d9bd55c72f70b'; 
+export const DICE_GAME_ADDRESS = '0xdd68c8a1dffcfc7e3c89455a8784852f51881564'; 

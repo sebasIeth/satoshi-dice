@@ -6,10 +6,11 @@ import ActionButtons from './components/ActionButtons';
 import History, { type HistoryItem } from './components/History';
 import GlobalHistory from './components/GlobalHistory';
 import ProvablyFair from './components/ProvablyFair';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits, formatUnits, maxUint256, decodeEventLog } from 'viem';
+import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import { formatUnits, decodeEventLog } from 'viem';
 import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
 import { saveBet } from './api';
+import { useGaslessRoll } from './hooks/useGaslessRoll';
 
 function App() {
   const { address, isConnected } = useAccount();
@@ -23,19 +24,7 @@ function App() {
     query: { enabled: !!address, refetchInterval: 2000 }
   });
 
-  // Read Allowance
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: USDC_ABI,
-    functionName: 'allowance',
-    args: [address!, DICE_GAME_ADDRESS],
-    query: { enabled: !!address, refetchInterval: 2000 }
-  });
-
   const balance = usdcBalance ? parseFloat(formatUnits(usdcBalance, 6)) : 0;
-  const currentAllowance = allowance ? parseFloat(formatUnits(allowance, 6)) : 0;
-
-
 
   // Read Bankroll (Contract Balance)
   const { data: bankroll } = useReadContract({
@@ -66,20 +55,15 @@ function App() {
   const directionRef = useRef<'under' | 'over'>('under');
   const [betCount, setBetCount] = useState(0);
 
-  // Contract Writes
-  // Split into separate hooks to avoid state conflicts
-  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, error: approveError } = useWriteContract();
-  const { data: rollHash, writeContract: writeRoll, isPending: isRollPending, error: rollError } = useWriteContract();
+  // Gasless roll hook
+  const { gaslessRoll, isRelaying, relayTxHash, relayError } = useGaslessRoll();
 
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({
-    hash: approveHash,
-  });
-
+  // Wait for relay transaction confirmation
   const { isLoading: isRollConfirming, isSuccess: isRollConfirmed, data: rollReceipt } = useWaitForTransactionReceipt({
-    hash: rollHash,
+    hash: relayTxHash,
   });
 
-  // Handle Roll Confirmation & Log Parsing manually for immediate feedback
+  // Handle Roll Confirmation & Log Parsing
   useEffect(() => {
     if (isRollConfirmed && rollReceipt) {
       for (const log of rollReceipt.logs) {
@@ -127,47 +111,15 @@ function App() {
               payout,
               txHash: rollReceipt.transactionHash,
             }).then(() => setBetCount(c => c + 1));
-
-            refetchAllowance();
           }
         } catch (e) {
           // Ignore other events
         }
       }
     }
-  }, [isRollConfirmed, rollReceipt, refetchAllowance]);
+  }, [isRollConfirmed, rollReceipt]);
 
-  // Refetch allowance after approval confirms
-  useEffect(() => {
-    if (isApproveConfirmed) {
-      refetchAllowance();
-    }
-  }, [isApproveConfirmed, refetchAllowance]);
-
-  // Watcher removed to prevent duplicate history entries (Receipt Parser handles it)
-  /* 
-  useWatchContractEvent({
-    address: DICE_GAME_ADDRESS,
-    abi: DICE_GAME_ABI,
-    eventName: 'BetPlaced',
-    onLogs(logs) {
-        // ... logic removed to avoid race condition with waitForTransactionReceipt
-    }
-  }); 
-  */
-
-  const isRolling = isRollPending || isRollConfirming;
-  const isApproving = isApprovePending || isApproveConfirming;
-  const needsApproval = currentAllowance < betAmount;
-
-  const handleApprove = () => {
-    writeApprove({
-      address: USDC_ADDRESS,
-      abi: USDC_ABI,
-      functionName: 'approve',
-      args: [DICE_GAME_ADDRESS, maxUint256]
-    });
-  };
+  const isRolling = isRelaying || isRollConfirming;
 
   const handleRoll = (direction: 'under' | 'over') => {
     if (!isConnected) {
@@ -182,22 +134,10 @@ function App() {
     setResult(null);
     directionRef.current = direction;
 
-    // Contract: roll(uint8 target, bool isUnder, uint256 amount)
     const isUnder = direction === 'under';
-
-    try {
-      writeRoll({
-        address: DICE_GAME_ADDRESS,
-        abi: DICE_GAME_ABI,
-        functionName: 'roll',
-        args: [targetValue, isUnder, parseUnits(betAmount.toString(), 6)],
-      });
-    } catch (e) {
-      console.error("Bet failed:", e);
-    }
+    gaslessRoll(targetValue, isUnder, betAmount);
   };
 
-  // Calculate Payouts
   // Calculate Payouts
   const winChanceUnder = Math.max(1, targetValue);
   const payoutUnderVal = (betAmount * (99 / winChanceUnder));
@@ -218,10 +158,10 @@ function App() {
         <main className="flex-1 flex flex-col items-center justify-start py-6 gap-6 w-full">
 
           {/* Error Message */}
-          {(approveError || rollError) && (
+          {relayError && (
             <div className="w-full px-4">
               <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-2 rounded text-xs text-center">
-                {approveError?.message?.split('.')[0] || rollError?.message?.split('.')[0]}
+                {relayError.message?.split('.')[0]}
               </div>
             </div>
           )}
@@ -247,26 +187,14 @@ function App() {
             targetValue={targetValue}
           />
 
-          {needsApproval ? (
-            <div className="w-full px-4 mt-2">
-              <button
-                onClick={handleApprove}
-                disabled={isApproving}
-                className="w-full py-4 bg-primary text-background font-bold rounded-xl shadow-[0_0_20px_rgba(247,147,26,0.2)] hover:shadow-[0_0_30px_rgba(247,147,26,0.4)] transition-all uppercase tracking-widest"
-              >
-                {isApproving ? 'Approving...' : 'Approve USDC'}
-              </button>
-            </div>
-          ) : (
-            <ActionButtons
-              onRollUnder={() => handleRoll('under')}
-              onRollOver={() => handleRoll('over')}
-              targetValue={targetValue}
-              disabled={isRolling || !sufficientLiquidity}
-              payoutUnder={payoutUnder}
-              payoutOver={payoutOver}
-            />
-          )}
+          <ActionButtons
+            onRollUnder={() => handleRoll('under')}
+            onRollOver={() => handleRoll('over')}
+            targetValue={targetValue}
+            disabled={isRolling || !sufficientLiquidity}
+            payoutUnder={payoutUnder}
+            payoutOver={payoutOver}
+          />
 
           <History history={history} />
 

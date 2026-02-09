@@ -28,6 +28,30 @@ export async function saveBet(bet: BetPayload): Promise<void> {
   }
 }
 
+export interface RelayParams {
+  player: string;
+  target: number;
+  isUnder: boolean;
+  amount: string; // bigint as string
+  deadline: number;
+  v: number;
+  r: string;
+  s: string;
+}
+
+export async function relayRoll(params: RelayParams): Promise<{ txHash: string }> {
+  const res = await fetch(`${API_BASE}/relay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Relay failed (${res.status})`);
+  }
+  return res.json();
+}
+
 export async function fetchBets(limit = 50, player?: string): Promise<BetRecord[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) });
