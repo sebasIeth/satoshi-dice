@@ -9,13 +9,17 @@ interface GameDialProps {
     isRolling: boolean;
 }
 
+const RADIUS = 115;
+const STROKE_WIDTH = 10;
+const CENTER = 128;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
 const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling }) => {
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const controls = useAnimation();
+    const [displayNumber, setDisplayNumber] = useState<number | null>(null);
 
-    // Calculate angle from value (0-100 maps to 0-360 degrees, or maybe a partial arc)
-    // Let's use a full 360 for 0-100 to make it simple and maximize space
     const angle = (value / 100) * 360;
 
     const handleInteraction = (clientX: number, clientY: number) => {
@@ -23,24 +27,13 @@ const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling 
         const rect = containerRef.current.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-
-        // Calculate angle relative to center, starting from top (12 o'clock)
-        // atan2 returns angle in radians from -PI to PI
-        // We want 0 at top, increasing clockwise
         const deltaX = clientX - centerX;
         const deltaY = clientY - centerY;
-
-        // Standard atan2 is 0 at positive X (3 o'clock), increasing counter-clockwise
-        // We want 0 at top (12 o'clock), increasing clockwise.
-        // So we rotate coordinates.
         let radians = Math.atan2(deltaY, deltaX);
         let degrees = radians * (180 / Math.PI);
-
-        // Convert to 0 at top, clockwise
         degrees = degrees + 90;
         if (degrees < 0) degrees += 360;
-
-        const newValue = Math.min(Math.max(Math.round((degrees / 360) * 100), 0), 99); // Cap at 99 for gameplay reasons usually
+        const newValue = Math.min(Math.max(Math.round((degrees / 360) * 100), 1), 99);
         onChange(newValue);
     };
 
@@ -61,7 +54,7 @@ const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling 
         const handleUp = () => setIsDragging(false);
         const handleTouchMove = (e: TouchEvent) => {
             if (isDragging) {
-                e.preventDefault(); // Prevent scrolling while dragging dial
+                e.preventDefault();
                 handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
             }
         };
@@ -79,80 +72,215 @@ const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling 
         };
     }, [isDragging]);
 
-    // Rolling animation logic
+    // Rolling animation - cycle through random numbers
     useEffect(() => {
-        if (result !== null && !isRolling) {
+        if (isRolling) {
+            const interval = setInterval(() => {
+                setDisplayNumber(Math.floor(Math.random() * 100));
+            }, 60);
+            return () => clearInterval(interval);
+        } else {
+            setDisplayNumber(null);
+        }
+    }, [isRolling]);
+
+    // Result reveal animation
+    useEffect(() => {
+        if (result !== null && result !== undefined && !isRolling) {
             controls.start({
-                scale: [1, 1.1, 1],
-                transition: { duration: 0.3 }
+                scale: [1, 1.15, 1],
+                transition: { duration: 0.4, ease: 'easeOut' }
             });
         }
     }, [result, isRolling, controls]);
 
+    // Generate tick marks every 10 units
+    const ticks = Array.from({ length: 10 }, (_, i) => {
+        const tickValue = i * 10;
+        const tickAngle = (tickValue / 100) * 360 - 90; // -90 to start from top
+        const outerR = RADIUS + 16;
+        const innerR = RADIUS + 8;
+        const labelR = RADIUS + 28;
+        const rad = (tickAngle * Math.PI) / 180;
+        return {
+            x1: CENTER + innerR * Math.cos(rad),
+            y1: CENTER + innerR * Math.sin(rad),
+            x2: CENTER + outerR * Math.cos(rad),
+            y2: CENTER + outerR * Math.sin(rad),
+            lx: CENTER + labelR * Math.cos(rad),
+            ly: CENTER + labelR * Math.sin(rad),
+            label: tickValue.toString(),
+        };
+    });
+
+    // Arc calculation for under (green) and over (red) zones
+    const underDash = (value / 100) * CIRCUMFERENCE;
+    const overDash = ((100 - value) / 100) * CIRCUMFERENCE;
+
+    const hasResult = result !== null && result !== undefined;
+    const isWin = hasResult && result < value;
+
     return (
         <div
-            className="relative w-64 h-64 flex items-center justify-center my-6 touch-none cursor-pointer"
+            className={clsx(
+                "relative w-[270px] h-[270px] flex items-center justify-center mt-4 mb-2 touch-none select-none",
+                isDragging ? "cursor-grabbing" : "cursor-grab"
+            )}
             ref={containerRef}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
         >
-            {/* Background Track */}
-            <div className="absolute w-full h-full rounded-full border-4 border-surface shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] bg-background"></div>
-
-            {/* Active Track (SVG for dynamic arc) */}
-            <svg className="absolute w-full h-full -rotate-90 pointer-events-none">
+            <svg viewBox="0 0 256 256" className="absolute w-full h-full">
+                {/* Background track */}
                 <circle
-                    cx="50%"
-                    cy="50%"
-                    r="48%" // Slightly smaller than container
+                    cx={CENTER}
+                    cy={CENTER}
+                    r={RADIUS}
                     fill="none"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    strokeDasharray={`${2 * Math.PI * 48}%`} // Circumference assuming r=48% roughly 120px nominal if w=250
-                    strokeDashoffset={`calc(${2 * Math.PI * 48}% * ${(100 - value) / 100})`}
-                    strokeLinecap="round"
-                    className="text-primary transition-all duration-75 ease-out drop-shadow-[0_0_8px_rgba(247,147,26,0.6)]"
+                    stroke="#1a1a1a"
+                    strokeWidth={STROKE_WIDTH + 2}
                 />
+
+                {/* Over zone (red) - full circle first */}
+                <circle
+                    cx={CENTER}
+                    cy={CENTER}
+                    r={RADIUS}
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth={STROKE_WIDTH}
+                    strokeDasharray={`${overDash} ${CIRCUMFERENCE}`}
+                    strokeDashoffset={-underDash}
+                    strokeLinecap="round"
+                    opacity={0.25}
+                    transform={`rotate(-90 ${CENTER} ${CENTER})`}
+                    className="transition-all duration-100 ease-out"
+                />
+
+                {/* Under zone (green) */}
+                <circle
+                    cx={CENTER}
+                    cy={CENTER}
+                    r={RADIUS}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth={STROKE_WIDTH}
+                    strokeDasharray={`${underDash} ${CIRCUMFERENCE}`}
+                    strokeLinecap="round"
+                    opacity={0.35}
+                    transform={`rotate(-90 ${CENTER} ${CENTER})`}
+                    className="transition-all duration-100 ease-out"
+                />
+
+                {/* Glow overlay on green arc */}
+                <circle
+                    cx={CENTER}
+                    cy={CENTER}
+                    r={RADIUS}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth={STROKE_WIDTH - 4}
+                    strokeDasharray={`${underDash} ${CIRCUMFERENCE}`}
+                    strokeLinecap="round"
+                    opacity={0.15}
+                    transform={`rotate(-90 ${CENTER} ${CENTER})`}
+                    filter="url(#glow)"
+                    className="transition-all duration-100 ease-out"
+                />
+
+                {/* Tick marks */}
+                {ticks.map((tick, i) => (
+                    <g key={i}>
+                        <line
+                            x1={tick.x1}
+                            y1={tick.y1}
+                            x2={tick.x2}
+                            y2={tick.y2}
+                            stroke="#444"
+                            strokeWidth={1.5}
+                        />
+                        <text
+                            x={tick.lx}
+                            y={tick.ly}
+                            fill="#555"
+                            fontSize="9"
+                            fontFamily="Fira Code, monospace"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                        >
+                            {tick.label}
+                        </text>
+                    </g>
+                ))}
+
+                {/* Glow filter */}
+                <defs>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                        <feMerge>
+                            <feMergeNode in="coloredBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
             </svg>
 
-            {/* Knob/Handle */}
+            {/* Knob/Handle - 44px touch target */}
             <div
                 className="absolute w-full h-full pointer-events-none"
                 style={{ transform: `rotate(${angle}deg)` }}
             >
                 <div
-                    className="absolute -top-[2%] left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] border-4 border-primary z-10"
-                />
+                    className={clsx(
+                        "absolute -top-[3px] left-1/2 -translate-x-1/2 w-[44px] h-[44px] flex items-center justify-center pointer-events-auto",
+                    )}
+                >
+                    <div className={clsx(
+                        "w-7 h-7 rounded-full bg-gradient-to-br from-white to-gray-200 border-[3px] border-primary shadow-[0_0_16px_rgba(247,147,26,0.6)]",
+                        "transition-transform duration-150",
+                        isDragging && "scale-110"
+                    )} />
+                </div>
             </div>
 
             {/* Center Display */}
-            <div
-                className="absolute w-40 h-40 rounded-full bg-surface shadow-2xl flex flex-col items-center justify-center border border-white/5 z-0"
-            >
+            <div className="absolute w-[150px] h-[150px] rounded-full bg-surface shadow-2xl flex flex-col items-center justify-center border border-white/5 z-0">
                 <motion.div animate={controls} className="text-center">
                     {isRolling ? (
                         <motion.span
-                            className="text-5xl font-bold font-mono text-secondary blur-sm"
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ repeat: Infinity, duration: 0.1 }}
+                            className="text-5xl font-bold font-mono text-secondary/70 blur-[2px]"
+                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ repeat: Infinity, duration: 0.15 }}
                         >
-                            {Math.floor(Math.random() * 100)}
+                            {displayNumber ?? '??'}
                         </motion.span>
                     ) : (
-                        <span className={clsx("text-6xl font-bold font-mono drop-shadow-md", result !== null && result !== undefined ? (result < value ? "text-green-400" : "text-red-500") : "text-white")}>
-                            {result !== null && result !== undefined ? result : value}
+                        <span className={clsx(
+                            "text-5xl font-bold font-mono drop-shadow-md transition-colors duration-300",
+                            hasResult
+                                ? isWin
+                                    ? "text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.5)]"
+                                    : "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                                : "text-white"
+                        )}>
+                            {hasResult ? result : value}
                         </span>
                     )}
-                    <div className="text-xs text-gray-500 mt-2 font-mono uppercase tracking-widest">
-                        {isRolling ? "ROLLING..." : "ROLL RESULT"}
+                    <div className={clsx(
+                        "text-[10px] mt-1.5 font-mono uppercase tracking-[0.15em] font-semibold",
+                        isRolling ? "text-secondary/60" : hasResult ? "text-gray-400" : "text-primary/60"
+                    )}>
+                        {isRolling ? "ROLLING..." : hasResult ? "RESULT" : "TARGET"}
                     </div>
                 </motion.div>
             </div>
 
-            {/* Hotspots / Decor */}
-            <div className="absolute bottom-0 w-full flex justify-center pb-8 pointer-events-none">
-                <span className="text-xs font-mono text-primary/50">DRAG TO ADJUST</span>
-            </div>
+            {/* Drag hint */}
+            {!hasResult && !isRolling && (
+                <div className="absolute -bottom-1 w-full flex justify-center pointer-events-none">
+                    <span className="text-[10px] font-mono text-gray-500 tracking-wider">DRAG TO ADJUST</span>
+                </div>
+            )}
         </div>
     );
 };

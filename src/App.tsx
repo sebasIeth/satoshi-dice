@@ -6,6 +6,7 @@ import ActionButtons from './components/ActionButtons';
 import History, { type HistoryItem } from './components/History';
 import GlobalHistory from './components/GlobalHistory';
 import ProvablyFair from './components/ProvablyFair';
+import Toast, { showToast } from './components/Toast';
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits, decodeEventLog } from 'viem';
 import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
@@ -80,8 +81,6 @@ function App() {
             const amount = amountRaw ? parseFloat(formatUnits(amountRaw, 6)) : 0;
             const currentTarget = targetValueRef.current;
 
-            console.log("Transaction Confirmed & Parsed:", { roll, isWin, payout });
-
             setResult(Number(roll));
 
             setLastRollResult({
@@ -100,6 +99,13 @@ function App() {
             };
             setHistory(prev => [newItem, ...prev]);
 
+            // Show toast notification
+            if (isWin) {
+              showToast('success', `You won $${payout.toFixed(2)} USDC! Rolled ${roll}`);
+            } else {
+              showToast('error', `You lost $${amount.toFixed(2)} USDC. Rolled ${roll}`);
+            }
+
             // Persist to MongoDB (fire-and-forget)
             saveBet({
               player: address!,
@@ -112,22 +118,29 @@ function App() {
               txHash: rollReceipt.transactionHash,
             }).then(() => setBetCount(c => c + 1));
           }
-        } catch (e) {
+        } catch {
           // Ignore other events
         }
       }
     }
   }, [isRollConfirmed, rollReceipt]);
 
+  // Show relay errors as toast
+  useEffect(() => {
+    if (relayError) {
+      showToast('error', relayError.message?.split('.')[0] || 'Transaction failed');
+    }
+  }, [relayError]);
+
   const isRolling = isRelaying || isRollConfirming;
 
   const handleRoll = (direction: 'under' | 'over') => {
     if (!isConnected) {
-      alert("Please connect your wallet first");
+      showToast('warning', 'Please connect your wallet first');
       return;
     }
     if (balance < betAmount) {
-      alert("Insufficient balance!");
+      showToast('warning', 'Insufficient USDC balance');
       return;
     }
 
@@ -150,27 +163,20 @@ function App() {
   const sufficientLiquidity = bankrollAmount >= Math.max(payoutUnderVal, payoutOverVal);
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans selection:bg-primary/30 flex flex-col items-center">
+    <div className="min-h-screen min-h-[100dvh] bg-background text-white font-sans selection:bg-primary/30 flex flex-col items-center">
       {/* Main Mobile Container */}
-      <div className="w-full max-w-[480px] min-h-screen bg-background relative shadow-2xl flex flex-col">
+      <div className="w-full max-w-[480px] min-h-screen min-h-[100dvh] bg-background relative shadow-2xl flex flex-col">
         <Header />
 
-        <main className="flex-1 flex flex-col items-center justify-start py-6 gap-6 w-full">
-
-          {/* Error Message */}
-          {relayError && (
-            <div className="w-full px-4">
-              <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-2 rounded text-xs text-center">
-                {relayError.message?.split('.')[0]}
-              </div>
-            </div>
-          )}
+        <main className="flex-1 flex flex-col items-center justify-start py-4 gap-4 w-full">
 
           {/* Liquidity Warning */}
           {!sufficientLiquidity && (
             <div className="w-full px-4">
-              <div className="bg-yellow-500/10 border border-yellow-500/50 text-yellow-500 p-2 rounded text-xs text-center font-bold">
-                ⚠️ Contract Low Funds. House cannot pay out. <br /> Please fund: {DICE_GAME_ADDRESS.slice(0, 6)}...{DICE_GAME_ADDRESS.slice(-4)}
+              <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-3 rounded-xl text-xs text-center font-mono">
+                Contract Low Funds. House cannot pay out.
+                <br />
+                <span className="text-yellow-500/60 text-[10px]">Fund: {DICE_GAME_ADDRESS.slice(0, 6)}...{DICE_GAME_ADDRESS.slice(-4)}</span>
               </div>
             </div>
           )}
@@ -192,6 +198,7 @@ function App() {
             onRollOver={() => handleRoll('over')}
             targetValue={targetValue}
             disabled={isRolling || !sufficientLiquidity}
+            isRolling={isRolling}
             payoutUnder={payoutUnder}
             payoutOver={payoutOver}
           />
@@ -205,6 +212,9 @@ function App() {
           </div>
         </main>
       </div>
+
+      {/* Toast notifications */}
+      <Toast />
     </div>
   );
 }
