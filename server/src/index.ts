@@ -6,19 +6,29 @@ import betsRouter from './routes/bets.js';
 import relayRouter from './routes/relay.js';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
 
+// Connect to DB before handling requests
+app.use(async (_req, _res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use('/api/bets', betsRouter);
 app.use('/api/relay', relayRouter);
 
-async function start() {
-  await connectDB();
+// Local dev: listen on port
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = Number(process.env.PORT) || 3001;
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-start();
+export default app;
