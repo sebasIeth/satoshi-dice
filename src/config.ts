@@ -28,7 +28,8 @@ export const config = createConfig({
     chains: [activeChain],
     connectors: [xoConnector(), ...rainbowConnectors],
     transports: {
-        [activeChain.id]: http(isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org'),
+        [base.id]: http('https://mainnet.base.org'),
+        [baseSepolia.id]: http('https://sepolia.base.org'),
     },
     ssr: false,
 });
