@@ -1,26 +1,32 @@
 import { createPublicClient, createWalletClient, http, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { base, baseSepolia } from 'viem/chains';
 
 const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY as `0x${string}`;
 if (!RELAYER_PRIVATE_KEY) {
   throw new Error('RELAYER_PRIVATE_KEY is required');
 }
 
+const isMainnet = process.env.NETWORK === 'mainnet';
+const activeChain = isMainnet ? base : baseSepolia;
+
 export const DICE_GAME_ADDRESS = process.env.DICE_GAME_ADDRESS as `0x${string}`;
-export const USDC_ADDRESS = (process.env.USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`;
-const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
+export const USDC_ADDRESS = (process.env.USDC_ADDRESS || (isMainnet
+  ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+  : '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+)) as `0x${string}`;
+const RPC_URL = process.env.RPC_URL || (isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org');
 
 export const relayerAccount = privateKeyToAccount(RELAYER_PRIVATE_KEY);
 
 export const publicClient = createPublicClient({
-  chain: baseSepolia,
+  chain: activeChain,
   transport: http(RPC_URL),
 });
 
 export const walletClient = createWalletClient({
   account: relayerAccount,
-  chain: baseSepolia,
+  chain: activeChain,
   transport: http(RPC_URL),
 });
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAccount, useReadContract, useSignTypedData } from 'wagmi';
 import { parseUnits } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { activeChain } from '../config';
 import { relayRoll } from '../api';
 
 const PERMIT_TYPES = {
@@ -48,7 +49,7 @@ export function useGaslessRoll() {
         domain: {
           name: 'USDC',
           version: '2',
-          chainId: 84532,
+          chainId: activeChain.id,
           verifyingContract: USDC_ADDRESS,
         },
         types: PERMIT_TYPES,

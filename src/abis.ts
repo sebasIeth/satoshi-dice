@@ -1,7 +1,18 @@
 import { parseAbi } from 'viem';
 
-// Updated USDC Address
-export const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
+
+// USDC address per network
+export const USDC_ADDRESS = (isMainnet
+  ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'  // Base mainnet
+  : '0x036CbD53842c5426634e7929541eC2318f3dCF7e'  // Base Sepolia
+) as `0x${string}`;
+
+// DiceGame address from env (deploy-specific)
+export const DICE_GAME_ADDRESS = (import.meta.env.VITE_DICE_GAME_ADDRESS ||
+  '0xdd68c8a1dffcfc7e3c89455a8784852f51881564'
+) as `0x${string}`;
+
 export const USDC_ABI = parseAbi([
   'function allowance(address owner, address spender) external view returns (uint256)',
   'function approve(address spender, uint256 amount) external returns (bool)',
@@ -159,5 +170,3 @@ export const DICE_GAME_ABI = [
     "type": "function"
   }
 ] as const;
-
-export const DICE_GAME_ADDRESS = '0xdd68c8a1dffcfc7e3c89455a8784852f51881564'; 
