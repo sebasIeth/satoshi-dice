@@ -1,9 +1,31 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { createConfig, http } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import {
+    metaMaskWallet,
+    walletConnectWallet,
+    coinbaseWallet,
+    rainbowWallet,
+} from '@rainbow-me/rainbowkit/wallets';
+import { xoConnector } from './connectors/xo-connector';
 
-export const config = getDefaultConfig({
-    appName: 'Satoshi Dice',
-    projectId: 'YOUR_PROJECT_ID', // TODO: Get a project ID from WalletConnect or use public one for dev
+const PROJECT_ID = 'YOUR_PROJECT_ID';
+
+const rainbowConnectors = connectorsForWallets(
+    [
+        {
+            groupName: 'Popular',
+            wallets: [metaMaskWallet, rainbowWallet, coinbaseWallet, walletConnectWallet],
+        },
+    ],
+    { appName: 'Satoshi Dice', projectId: PROJECT_ID },
+);
+
+export const config = createConfig({
     chains: [baseSepolia],
-    ssr: false, // Vite is client-side only
+    connectors: [xoConnector(), ...rainbowConnectors],
+    transports: {
+        [baseSepolia.id]: http('https://sepolia.base.org'),
+    },
+    ssr: false,
 });

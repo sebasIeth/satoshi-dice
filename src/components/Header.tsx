@@ -1,11 +1,14 @@
 import React from 'react';
 import { Bitcoin, Building2 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useReadContract } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { isXOAvailable } from '../connectors/xo-connector';
 
 const Header: React.FC = () => {
+    const { address, isConnected, isConnecting } = useAccount();
+
     const { data: bankroll } = useReadContract({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
@@ -15,6 +18,11 @@ const Header: React.FC = () => {
     });
 
     const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
+    const inXO = isXOAvailable();
+
+    const truncatedAddress = address
+        ? `${address.slice(0, 6)}...${address.slice(-4)}`
+        : '';
 
     return (
         <header className="flex items-center justify-between px-6 py-4 border-b border-surface bg-background/50 backdrop-blur-md sticky top-0 z-50">
@@ -33,7 +41,18 @@ const Header: React.FC = () => {
                 </div>
             </div>
 
-            <ConnectButton showBalance={true} accountStatus="address" />
+            {inXO ? (
+                isConnected ? (
+                    <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg">
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-sm font-mono text-white">{truncatedAddress}</span>
+                    </div>
+                ) : isConnecting ? (
+                    <span className="text-sm text-gray-400 font-mono">Connecting...</span>
+                ) : null
+            ) : (
+                <ConnectButton showBalance={true} accountStatus="address" />
+            )}
         </header>
     );
 };
