@@ -6,9 +6,10 @@ import type { Address } from 'viem';
 const CHAIN_ID_HEX = '0x14a34';
 const RPC_URL = 'https://sepolia.base.org';
 
-export function isXOAvailable(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return typeof window !== 'undefined' && !!(window as any).XOConnect;
+let xoAlias: string | null = null;
+
+export function getXOAlias(): string | null {
+  return xoAlias;
 }
 
 export function xoConnector() {
@@ -31,6 +32,9 @@ export function xoConnector() {
         method: 'eth_requestAccounts',
       })) as readonly Address[];
 
+      const client = await provider.getClient();
+      xoAlias = client?.alias || null;
+
       const chainId = baseSepolia.id;
 
       config.emitter.emit('connect', { accounts, chainId });
@@ -41,6 +45,7 @@ export function xoConnector() {
 
     async disconnect() {
       provider = null;
+      xoAlias = null;
       config.emitter.emit('disconnect');
     },
 
@@ -61,7 +66,8 @@ export function xoConnector() {
     },
 
     async isAuthorized() {
-      return isXOAvailable();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return typeof window !== 'undefined' && !!(window as any).XOConnect;
     },
 
     onAccountsChanged(accounts) {

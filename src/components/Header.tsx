@@ -4,6 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { getXOAlias } from '../connectors/xo-connector';
 
 const Header: React.FC = () => {
     const { address, isConnected, isConnecting, connector } = useAccount();
@@ -20,10 +21,7 @@ const Header: React.FC = () => {
 
     // Detectamos XO por el connector activo, no por window.XOConnect
     const isXO = connector?.id === 'xo-connect';
-
-    const truncatedAddress = address
-        ? `${address.slice(0, 6)}...${address.slice(-4)}`
-        : '';
+    const alias = isXO ? getXOAlias() : null;
 
     return (
         <header className="flex items-center justify-between px-6 py-4 border-b border-surface bg-background/50 backdrop-blur-md sticky top-0 z-50">
@@ -45,7 +43,7 @@ const Header: React.FC = () => {
             {isXO ? (
                 <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-sm font-mono text-white">{truncatedAddress}</span>
+                    <span className="text-sm font-mono text-white">{alias || address?.slice(0, 6) + '...' + address?.slice(-4)}</span>
                 </div>
             ) : isConnecting && !isConnected ? (
                 <span className="text-sm text-gray-400 font-mono">Connecting...</span>
