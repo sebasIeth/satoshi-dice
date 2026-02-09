@@ -19,7 +19,6 @@ export default function XOAutoConnect({ children }: { children?: ReactNode }) {
     connectAsync({ connector: xo }).catch((e) => {
       if (!cancelled) {
         console.debug('[XOAutoConnect] not in XO context or connection failed:', e?.message);
-        alert('[XO DEBUG] ' + (e?.stack || e?.message || String(e)));
       }
     });
 

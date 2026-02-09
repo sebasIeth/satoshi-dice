@@ -24,29 +24,24 @@ export function xoConnector() {
     async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
       void parameters;
 
-      try {
-        provider = new XOConnectProvider({
-          defaultChainId: CHAIN_ID_HEX,
-          rpcs: { [CHAIN_ID_HEX]: RPC_URL },
-        });
+      provider = new XOConnectProvider({
+        defaultChainId: CHAIN_ID_HEX,
+        rpcs: { [CHAIN_ID_HEX]: RPC_URL },
+      });
 
-        const accounts = (await provider.request({
-          method: 'eth_requestAccounts',
-        })) as readonly Address[];
+      const accounts = (await provider.request({
+        method: 'eth_requestAccounts',
+      })) as readonly Address[];
 
-        const client = await provider.getClient();
-        xoAlias = client?.alias || null;
+      const client = await provider.getClient();
+      xoAlias = client?.alias || null;
 
-        const chainId = activeChain.id;
+      const chainId = activeChain.id;
 
-        config.emitter.emit('connect', { accounts, chainId });
+      config.emitter.emit('connect', { accounts, chainId });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return { accounts, chainId } as any;
-      } catch (err: any) {
-        alert('[XO Connector DEBUG] ' + (err?.stack || err?.message || String(err)));
-        throw err;
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { accounts, chainId } as any;
     },
 
     async disconnect() {
