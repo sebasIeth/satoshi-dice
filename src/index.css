@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  /* Prevent horizontal scroll */
+  overflow-x: hidden; 
+}
+
+#root {
+  width: 100%;
+  max-width: 480px; /* Mobile width constraint */
+  min-height: 100vh;
+  background-color: #0a0a0a;
+  position: relative;
+}
+
+/* Custom Scrollbar for history if needed */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a; 
+}
+::-webkit-scrollbar-thumb {
+  background: #333; 
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555; 
+}
