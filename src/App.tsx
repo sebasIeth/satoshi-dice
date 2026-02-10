@@ -50,6 +50,7 @@ function App() {
     player: string;
     roll: number;
   } | null>(null);
+  const [lastBetIsWin, setLastBetIsWin] = useState<boolean | null>(null);
 
   const targetValueRef = useRef(targetValue);
   useEffect(() => {
@@ -85,6 +86,7 @@ function App() {
             const currentTarget = targetValueRef.current;
 
             setResult(Number(roll));
+            setLastBetIsWin(isWin || false);
 
             setLastRollResult({
               txHash: rollReceipt.transactionHash,
@@ -148,6 +150,7 @@ function App() {
     }
 
     setResult(null);
+    setLastBetIsWin(null);
     directionRef.current = direction;
 
     const isUnder = direction === 'under';
@@ -172,7 +175,7 @@ function App() {
       <div className="w-full max-w-[480px] min-h-screen min-h-[100dvh] bg-background relative shadow-2xl flex flex-col">
         <Header />
 
-        <main className="flex-1 flex flex-col items-center justify-start py-4 gap-4 w-full">
+        <main className="flex-1 flex flex-col items-center justify-start py-2 gap-2 w-full">
 
           {/* Liquidity Warning */}
           {(!canPayUnder || !canPayOver) && (
@@ -187,14 +190,17 @@ function App() {
 
           <GameDial
             value={targetValue}
-            onChange={(v) => { setTargetValue(v); setResult(null); }}
+            onChange={(v) => { setTargetValue(v); setResult(null); setLastBetIsWin(null); }}
             result={result}
             isRolling={isRolling}
+            isWin={lastBetIsWin}
           />
 
           <BetControls
             betAmount={betAmount}
             targetValue={targetValue}
+            isRolling={isRolling}
+            isWin={lastBetIsWin}
           />
 
           <ActionButtons

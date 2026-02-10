@@ -7,6 +7,7 @@ interface GameDialProps {
     onChange: (value: number) => void;
     result?: number | null;
     isRolling: boolean;
+    isWin?: boolean | null;
 }
 
 const RADIUS = 115;
@@ -14,7 +15,7 @@ const STROKE_WIDTH = 10;
 const CENTER = 128;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling }) => {
+const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling, isWin }) => {
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const controls = useAnimation();
@@ -118,12 +119,11 @@ const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling 
     const overDash = ((100 - value) / 100) * CIRCUMFERENCE;
 
     const hasResult = result !== null && result !== undefined;
-    const isWin = hasResult && result < value;
 
     return (
         <div
             className={clsx(
-                "relative w-[270px] h-[270px] flex items-center justify-center mt-4 mb-2 touch-none select-none",
+                "relative w-[270px] h-[270px] flex items-center justify-center mt-1 mb-4 touch-none select-none",
                 isDragging ? "cursor-grabbing" : "cursor-grab"
             )}
             ref={containerRef}
@@ -267,17 +267,23 @@ const GameDial: React.FC<GameDialProps> = ({ value, onChange, result, isRolling 
                         </span>
                     )}
                     <div className={clsx(
-                        "text-[10px] mt-1.5 font-mono uppercase tracking-[0.15em] font-semibold",
-                        isRolling ? "text-secondary/60" : hasResult ? "text-gray-400" : "text-primary/60"
+                        "mt-1.5 font-mono uppercase tracking-[0.15em] font-bold",
+                        isRolling
+                            ? "text-[10px] text-secondary/60"
+                            : hasResult
+                                ? isWin
+                                    ? "text-sm text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]"
+                                    : "text-sm text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                                : "text-[10px] text-primary/60"
                     )}>
-                        {isRolling ? "ROLLING..." : hasResult ? "RESULT" : "TARGET"}
+                        {isRolling ? "ROLLING..." : hasResult ? (isWin ? "WIN!" : "LOSE") : "TARGET"}
                     </div>
                 </motion.div>
             </div>
 
             {/* Drag hint */}
             {!hasResult && !isRolling && (
-                <div className="absolute -bottom-1 w-full flex justify-center pointer-events-none">
+                <div className="absolute -bottom-5 w-full flex justify-center pointer-events-none">
                     <span className="text-[10px] font-mono text-gray-500 tracking-wider">DRAG TO ADJUST</span>
                 </div>
             )}
