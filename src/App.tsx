@@ -177,16 +177,6 @@ function App() {
 
         <main className="flex-1 flex flex-col items-center justify-start py-2 gap-2 w-full">
 
-          {/* Liquidity Warning */}
-          {(!canPayUnder || !canPayOver) && (
-            <div className="w-full px-4">
-              <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-3 rounded-xl text-xs text-center font-mono">
-                Contract Low Funds. House cannot pay out.
-                <br />
-                <span className="text-yellow-500/60 text-[10px]">Fund: {DICE_GAME_ADDRESS.slice(0, 6)}...{DICE_GAME_ADDRESS.slice(-4)}</span>
-              </div>
-            </div>
-          )}
 
           <GameDial
             value={targetValue}
