@@ -44,14 +44,25 @@ export function useGaslessRoll() {
       const amount = parseUnits(betAmount.toString(), 6);
       const deadline = Math.floor(Date.now() / 1000) + 600; // 10 minutes
 
-      // Read fresh nonce directly from chain to avoid stale cache
-      const freshNonce = await readContract(config, {
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: 'nonces',
-        args: [address],
-        chainId: activeChain.id,
-      });
+      // Read fresh nonce directly from chain to avoid stale cache (with retries)
+      let freshNonce: bigint | undefined;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          freshNonce = await readContract(config, {
+            address: USDC_ADDRESS,
+            abi: USDC_ABI,
+            functionName: 'nonces',
+            args: [address],
+            chainId: activeChain.id,
+          });
+          break;
+        } catch {
+          if (attempt === 3) throw new Error('Failed to read nonce from chain');
+          await new Promise(r => setTimeout(r, 400 * 2 ** attempt));
+        }
+      }
+
+      if (freshNonce === undefined) throw new Error('Failed to read nonce from chain');
 
       // Sign EIP-712 Permit
       const signature = await signTypedDataAsync({

@@ -40,16 +40,37 @@ export interface RelayParams {
 }
 
 export async function relayRoll(params: RelayParams): Promise<{ txHash: string }> {
-  const res = await fetch(`${API_BASE}/relay`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Relay failed (${res.status})`);
+  const maxRetries = 3;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/relay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const errorMsg = data.error || `Relay failed (${res.status})`;
+        // Only retry on 500+ server errors, not 4xx client errors
+        if (res.status >= 500 && attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
+          continue;
+        }
+        throw new Error(errorMsg);
+      }
+      return res.json();
+    } catch (err: any) {
+      // Retry on network failures (fetch throws on network errors)
+      if (err.name !== 'Error' || !err.message?.startsWith('Relay failed')) {
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
+          continue;
+        }
+      }
+      throw err;
+    }
   }
-  return res.json();
+  throw new Error('Relay failed after retries');
 }
 
 export async function fetchBets(limit = 50, player?: string): Promise<BetRecord[]> {

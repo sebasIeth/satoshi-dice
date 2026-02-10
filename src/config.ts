@@ -28,8 +28,16 @@ export const config = createConfig({
     chains: [activeChain],
     connectors: [xoConnector(), ...rainbowConnectors],
     transports: {
-        [base.id]: http('https://mainnet.base.org'),
-        [baseSepolia.id]: http('https://sepolia.base.org'),
+        [base.id]: http('https://mainnet.base.org', {
+            retryCount: 5,
+            retryDelay: 300,
+            timeout: 15_000,
+        }),
+        [baseSepolia.id]: http('https://sepolia.base.org', {
+            retryCount: 5,
+            retryDelay: 300,
+            timeout: 15_000,
+        }),
     },
     ssr: false,
 });
