@@ -29,13 +29,13 @@ export const config = createConfig({
     connectors: [xoConnector(), ...rainbowConnectors],
     transports: {
         [base.id]: http('https://mainnet.base.org', {
-            retryCount: 5,
-            retryDelay: 300,
+            retryCount: 3,
+            retryDelay: 200,
             timeout: 15_000,
         }),
         [baseSepolia.id]: http('https://sepolia.base.org', {
-            retryCount: 5,
-            retryDelay: 300,
+            retryCount: 3,
+            retryDelay: 200,
             timeout: 15_000,
         }),
     },

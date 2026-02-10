@@ -46,7 +46,7 @@ export function useGaslessRoll() {
 
       // Read fresh nonce directly from chain to avoid stale cache (with retries)
       let freshNonce: bigint | undefined;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
           freshNonce = await readContract(config, {
             address: USDC_ADDRESS,
@@ -57,8 +57,8 @@ export function useGaslessRoll() {
           });
           break;
         } catch {
-          if (attempt === 3) throw new Error('Failed to read nonce from chain');
-          await new Promise(r => setTimeout(r, 400 * 2 ** attempt));
+          if (attempt === 2) throw new Error('Failed to read nonce from chain');
+          await new Promise(r => setTimeout(r, 300 * 2 ** attempt));
         }
       }
 

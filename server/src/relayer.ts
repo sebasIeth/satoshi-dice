@@ -22,8 +22,8 @@ export const relayerAccount = privateKeyToAccount(RELAYER_PRIVATE_KEY);
 export const publicClient = createPublicClient({
   chain: activeChain,
   transport: http(RPC_URL, {
-    retryCount: 5,
-    retryDelay: 300,
+    retryCount: 3,
+    retryDelay: 200,
     timeout: 20_000,
   }),
 });
@@ -32,8 +32,8 @@ export const walletClient = createWalletClient({
   account: relayerAccount,
   chain: activeChain,
   transport: http(RPC_URL, {
-    retryCount: 5,
-    retryDelay: 300,
+    retryCount: 3,
+    retryDelay: 200,
     timeout: 20_000,
   }),
 });

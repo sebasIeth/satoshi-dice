@@ -24,7 +24,7 @@ function App() {
     functionName: 'balanceOf',
     args: [address!],
     chainId: activeChain.id,
-    query: { enabled: !!address, refetchInterval: 5000 }
+    query: { enabled: !!address, refetchInterval: 3000 }
   });
 
   const balance = usdcBalance ? parseFloat(formatUnits(usdcBalance, 6)) : 0;
@@ -36,7 +36,7 @@ function App() {
     functionName: 'balanceOf',
     args: [DICE_GAME_ADDRESS],
     chainId: activeChain.id,
-    query: { refetchInterval: 10000 }
+    query: { refetchInterval: 6000 }
   });
   const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
 
