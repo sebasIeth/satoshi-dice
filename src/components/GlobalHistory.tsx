@@ -31,7 +31,7 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
   useEffect(() => {
     const load = () => {
       setIsLoading(true);
-      fetchBets(50).then(data => {
+      fetchBets(20).then(data => {
         setBets(data);
         setIsLoading(false);
       });

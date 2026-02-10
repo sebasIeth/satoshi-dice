@@ -26,7 +26,7 @@ const History: React.FC<HistoryProps> = ({ history }) => {
             </div>
             <div className="flex gap-2 justify-start overflow-x-auto pb-1 scrollbar-none min-h-[52px]">
                 <AnimatePresence initial={false}>
-                    {history.slice(0, 5).map((item) => (
+                    {history.slice(0, 10).map((item) => (
                         <motion.div
                             key={item.id}
                             initial={{ opacity: 0, x: -30, scale: 0.7 }}

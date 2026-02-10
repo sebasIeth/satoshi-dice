@@ -187,7 +187,7 @@ function App() {
 
           <GameDial
             value={targetValue}
-            onChange={setTargetValue}
+            onChange={(v) => { setTargetValue(v); setResult(null); }}
             result={result}
             isRolling={isRolling}
           />
