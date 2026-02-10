@@ -29,7 +29,8 @@ const Header: React.FC = () => {
     });
 
     const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
-    const userBalanceAmount = userBalance ? parseFloat(formatUnits(userBalance, 6)) : 0;
+    const userBalanceRaw = userBalance ? parseFloat(formatUnits(userBalance, 6)) : 0;
+    const userBalanceAmount = Math.trunc(userBalanceRaw * 100) / 100;
 
     const isXO = connector?.id === 'xo-connect';
     const alias = isXO ? getXOAlias() : null;
