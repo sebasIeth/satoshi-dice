@@ -160,11 +160,11 @@ function App() {
   // Calculate Payouts
   const winChanceUnder = Math.max(1, targetValue);
   const payoutUnderVal = (betAmount * (99 / winChanceUnder));
-  const payoutUnder = payoutUnderVal.toFixed(2);
+  const payoutUnder = payoutUnderVal.toFixed(4);
 
   const winChanceOver = Math.max(1, 99 - targetValue);
   const payoutOverVal = (betAmount * (99 / winChanceOver));
-  const payoutOver = payoutOverVal.toFixed(2);
+  const payoutOver = payoutOverVal.toFixed(4);
 
   const canPayUnder = bankrollAmount >= payoutUnderVal;
   const canPayOver = bankrollAmount >= payoutOverVal;
