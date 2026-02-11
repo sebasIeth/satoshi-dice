@@ -13,7 +13,7 @@ if (!PRIVATE_KEY) {
 
 const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const OWNER_ADDRESS = '0x7be0C111b96B5282f4E16ac87129B34Dde19C6d6';
+const OWNER_ADDRESS = '0x667557d9fd190f95Bd3c1aA7Af4f8825Acbc426D';
 
 const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
 

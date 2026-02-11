@@ -10,7 +10,7 @@ export const USDC_ADDRESS = (isMainnet
 
 // DiceGame address from env (deploy-specific)
 export const DICE_GAME_ADDRESS = (import.meta.env.VITE_DICE_GAME_ADDRESS ||
-  '0xdd68c8a1dffcfc7e3c89455a8784852f51881564'
+  '0x16c7fc23ac5c571e3e4765bc7e80e440f38be553'
 ) as `0x${string}`;
 
 export const USDC_ABI = parseAbi([
