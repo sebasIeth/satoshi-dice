@@ -1,14 +1,29 @@
-import React from 'react';
-import { Wallet, Building2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Wallet, Building2, Settings } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
-import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS, DICE_GAME_ABI } from '../abis';
 import { activeChain } from '../config';
 import { getXOAlias } from '../connectors/xo-connector';
+import OwnerPanel from './OwnerPanel';
 
 const Header: React.FC = () => {
     const { address, isConnected, isConnecting, connector } = useAccount();
+    const [ownerPanelOpen, setOwnerPanelOpen] = useState(false);
+
+    const { data: contractOwner } = useReadContract({
+        address: DICE_GAME_ADDRESS,
+        abi: DICE_GAME_ABI,
+        functionName: 'owner',
+        chainId: activeChain.id,
+    });
+
+    const isOwner = !!(
+        address &&
+        contractOwner &&
+        address.toLowerCase() === (contractOwner as string).toLowerCase()
+    );
 
     const { data: bankroll } = useReadContract({
         address: USDC_ADDRESS,
@@ -55,6 +70,17 @@ const Header: React.FC = () => {
 
             {/* Wallet / Connection */}
             <div className="flex items-center gap-2">
+                {/* Owner settings button */}
+                {isOwner && (
+                    <button
+                        onClick={() => setOwnerPanelOpen(true)}
+                        className="p-1.5 rounded-lg bg-surface/80 border border-white/5 text-gray-400 hover:text-primary transition-colors"
+                        title="Owner Panel"
+                    >
+                        <Settings className="w-4 h-4" />
+                    </button>
+                )}
+
                 {/* User balance badge */}
                 {isConnected && (
                     <div className="flex items-center gap-1.5 bg-surface/80 px-2.5 py-1.5 rounded-lg border border-white/5">
@@ -79,6 +105,10 @@ const Header: React.FC = () => {
                     <ConnectButton showBalance={false} accountStatus="address" />
                 )}
             </div>
+
+            {isOwner && (
+                <OwnerPanel isOpen={ownerPanelOpen} onClose={() => setOwnerPanelOpen(false)} />
+            )}
         </header>
     );
 };
