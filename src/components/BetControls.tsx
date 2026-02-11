@@ -24,8 +24,9 @@ const BetControls: React.FC<BetControlsProps> = ({ isRolling, isWin }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-primary font-bold text-sm">USDC</span>
-                        <span className="text-white font-mono font-bold text-lg">0.10</span>
+                        <span className="text-white font-mono font-bold text-lg">0.11</span>
                     </div>
+                    <span className="text-[9px] text-gray-500 font-mono">0.10 bet + 0.01 fee</span>
                 </div>
             </div>
 
