@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useAccount, useReadContract, useSignTypedData } from 'wagmi';
 import { readContract } from '@wagmi/core';
 import { parseUnits } from 'viem';
-import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS } from '../abis';
+import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS, DICE_GAME_ABI } from '../abis';
 import { activeChain, config } from '../config';
 import { relayRoll } from '../api';
+
+const FEE_AMOUNT = 10000n; // 0.01 USDC (6 decimals) — fallback
 
 const PERMIT_TYPES = {
   Permit: [
@@ -32,6 +34,14 @@ export function useGaslessRoll() {
     chainId: activeChain.id,
   });
 
+  // Read fee from contract
+  const { data: contractFee } = useReadContract({
+    address: DICE_GAME_ADDRESS,
+    abi: DICE_GAME_ABI,
+    functionName: 'fee',
+    chainId: activeChain.id,
+  });
+
   const gaslessRoll = async (target: number, isUnder: boolean, betAmount: number) => {
     if (!address) throw new Error('Wallet not connected');
     if (!usdcName) throw new Error('Contract data not loaded');
@@ -42,6 +52,8 @@ export function useGaslessRoll() {
 
     try {
       const amount = parseUnits(betAmount.toString(), 6);
+      const fee = contractFee ?? FEE_AMOUNT;
+      const permitValue = amount + fee; // Sign permit for amount + fee
       const deadline = Math.floor(Date.now() / 1000) + 600; // 10 minutes
 
       // Read fresh nonce directly from chain to avoid stale cache (with retries)
@@ -77,7 +89,7 @@ export function useGaslessRoll() {
         message: {
           owner: address,
           spender: DICE_GAME_ADDRESS,
-          value: amount,
+          value: permitValue,
           nonce: freshNonce,
           deadline: BigInt(deadline),
         },

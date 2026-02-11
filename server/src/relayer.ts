@@ -44,4 +44,5 @@ export const USDC_ABI = parseAbi([
 
 export const DICE_GAME_ABI = parseAbi([
   'function rollWithPermit(address player, uint8 target, bool isUnder, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external',
+  'function fee() external view returns (uint256)',
 ]);

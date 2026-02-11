@@ -1,29 +1,30 @@
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import solc from 'solc';
 
-const PRIVATE_KEY = ""
+const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.RELAYER_PRIVATE_KEY;
 if (!PRIVATE_KEY) {
   console.error('Set DEPLOYER_PRIVATE_KEY or RELAYER_PRIVATE_KEY env var');
   process.exit(1);
 }
 
-const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+const RPC_URL = process.env.RPC_URL || 'https://mainnet.base.org';
+const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const OWNER_ADDRESS = '0x7be0C111b96B5282f4E16ac87129B34Dde19C6d6';
 
 const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
 
 const publicClient = createPublicClient({
-  chain: baseSepolia,
+  chain: base,
   transport: http(RPC_URL),
 });
 
 const walletClient = createWalletClient({
   account,
-  chain: baseSepolia,
+  chain: base,
   transport: http(RPC_URL),
 });
 
@@ -60,7 +61,7 @@ async function main() {
   const hash = await walletClient.deployContract({
     abi,
     bytecode,
-    args: [USDC_ADDRESS],
+    args: [USDC_ADDRESS, OWNER_ADDRESS],
   });
 
   console.log(`Deploy tx: ${hash}`);

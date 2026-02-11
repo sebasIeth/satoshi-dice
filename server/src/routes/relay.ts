@@ -48,7 +48,14 @@ router.post('/', async (req, res) => {
 
     const amountBigInt = BigInt(amount);
 
-    // On-chain checks: player balance
+    // Read fee from contract
+    const feeBigInt = await publicClient.readContract({
+      address: DICE_GAME_ADDRESS,
+      abi: DICE_GAME_ABI,
+      functionName: 'fee',
+    });
+
+    // On-chain checks: player balance (must cover bet + fee)
     const playerBalance = await publicClient.readContract({
       address: USDC_ADDRESS,
       abi: USDC_ABI,
@@ -56,7 +63,7 @@ router.post('/', async (req, res) => {
       args: [player as `0x${string}`],
     });
 
-    if (playerBalance < amountBigInt) {
+    if (playerBalance < amountBigInt + feeBigInt) {
       res.status(400).json({ error: 'Insufficient USDC balance' });
       return;
     }

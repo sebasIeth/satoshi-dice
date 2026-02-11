@@ -144,7 +144,7 @@ function App() {
       showToast('warning', 'Please connect your wallet first');
       return;
     }
-    if (balance < betAmount) {
+    if (balance < betAmount + 0.01) {
       showToast('warning', 'Insufficient USDC balance');
       return;
     }

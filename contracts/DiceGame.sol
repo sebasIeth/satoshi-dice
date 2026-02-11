@@ -19,18 +19,25 @@ contract DiceGame {
 
     address public owner;
     IERC20 public usdc;
+    uint256 public fee = 10000; // 0.01 USDC (6 decimals)
 
-    constructor(address _usdc) {
-        owner = msg.sender;
+    constructor(address _usdc, address _owner) {
+        owner = _owner;
         usdc = IERC20(_usdc);
+    }
+
+    function setFee(uint256 _fee) external {
+        require(msg.sender == owner, "Only owner");
+        fee = _fee;
     }
 
     function roll(uint8 target, bool isUnder, uint256 amount) external {
         require(amount > 0, "Bet amount must be greater than 0");
         require(target > 0 && target < 100, "Target must be between 1 and 99");
-        
-        // Transfer bet amount from user to contract (needs Approval)
-        require(usdc.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+
+        // Transfer bet amount + fee from user to contract (needs Approval)
+        uint256 totalCharge = amount + fee;
+        require(usdc.transferFrom(msg.sender, address(this), totalCharge), "Transfer failed");
 
         // Calculate Win Chance
         uint8 winChance = isUnder ? target : (99 - target);
@@ -76,11 +83,14 @@ contract DiceGame {
         require(amount > 0, "Bet amount must be greater than 0");
         require(target > 0 && target < 100, "Target must be between 1 and 99");
 
-        // Try permit; if allowance already exists, permit may revert (e.g. nonce mismatch)
-        try IERC20Permit(address(usdc)).permit(player, address(this), amount, deadline, v, r, s) {} catch {}
+        // Calculate total charge (bet + fee)
+        uint256 totalCharge = amount + fee;
 
-        // Transfer bet amount from player to contract
-        require(usdc.transferFrom(player, address(this), amount), "Transfer failed");
+        // Try permit for totalCharge; if allowance already exists, permit may revert (e.g. nonce mismatch)
+        try IERC20Permit(address(usdc)).permit(player, address(this), totalCharge, deadline, v, r, s) {} catch {}
+
+        // Transfer bet amount + fee from player to contract
+        require(usdc.transferFrom(player, address(this), totalCharge), "Transfer failed");
 
         // Calculate Win Chance
         uint8 winChance = isUnder ? target : (99 - target);
