@@ -127,4 +127,10 @@ contract DiceGame {
         usdc.transfer(owner, amount);
         emit FundsWithdrawn(owner, amount);
     }
+
+    function transferOwnership(address newOwner) external {
+        require(msg.sender == owner, "Only owner");
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
 }

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { X, Copy, Check, ArrowDownToLine } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Copy, Check, ArrowDownToLine, UserRoundCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits, formatUnits } from 'viem';
+import { parseUnits, formatUnits, isAddress } from 'viem';
 import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS, DICE_GAME_ABI } from '../abis';
 import { activeChain } from '../config';
 import { showToast } from './Toast';
@@ -14,6 +14,7 @@ interface OwnerPanelProps {
 
 const OwnerPanel: React.FC<OwnerPanelProps> = ({ isOpen, onClose }) => {
     const [withdrawAmount, setWithdrawAmount] = useState('');
+    const [newOwner, setNewOwner] = useState('');
     const [copied, setCopied] = useState(false);
 
     const { data: contractBalance, refetch: refetchBalance } = useReadContract({
@@ -25,19 +26,41 @@ const OwnerPanel: React.FC<OwnerPanelProps> = ({ isOpen, onClose }) => {
         query: { refetchInterval: 5000 },
     });
 
-    const { writeContract, data: txHash, isPending } = useWriteContract();
+    // Withdraw tx
+    const {
+        writeContract: writeWithdraw,
+        data: withdrawTxHash,
+        isPending: isWithdrawPending,
+    } = useWriteContract();
 
-    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-        hash: txHash,
-    });
+    const { isLoading: isWithdrawConfirming, isSuccess: isWithdrawSuccess } =
+        useWaitForTransactionReceipt({ hash: withdrawTxHash });
 
-    React.useEffect(() => {
-        if (isSuccess) {
+    // Transfer ownership tx
+    const {
+        writeContract: writeTransfer,
+        data: transferTxHash,
+        isPending: isTransferPending,
+    } = useWriteContract();
+
+    const { isLoading: isTransferConfirming, isSuccess: isTransferSuccess } =
+        useWaitForTransactionReceipt({ hash: transferTxHash });
+
+    useEffect(() => {
+        if (isWithdrawSuccess) {
             showToast('success', `Withdrew ${withdrawAmount} USDC`);
             setWithdrawAmount('');
             refetchBalance();
         }
-    }, [isSuccess]);
+    }, [isWithdrawSuccess]);
+
+    useEffect(() => {
+        if (isTransferSuccess) {
+            showToast('success', 'Ownership transferred');
+            setNewOwner('');
+            onClose();
+        }
+    }, [isTransferSuccess]);
 
     const balanceFormatted = contractBalance
         ? parseFloat(formatUnits(contractBalance, 6)).toFixed(2)
@@ -59,12 +82,33 @@ const OwnerPanel: React.FC<OwnerPanelProps> = ({ isOpen, onClose }) => {
             showToast('error', 'Enter a valid amount');
             return;
         }
-        writeContract(
+        writeWithdraw(
             {
                 address: DICE_GAME_ADDRESS,
                 abi: DICE_GAME_ABI,
                 functionName: 'withdraw',
                 args: [parseUnits(withdrawAmount, 6)],
+                chainId: activeChain.id,
+            },
+            {
+                onError: (err) => {
+                    showToast('error', err.message.length > 80 ? err.message.slice(0, 80) + '...' : err.message);
+                },
+            },
+        );
+    };
+
+    const handleTransferOwnership = () => {
+        if (!isAddress(newOwner)) {
+            showToast('error', 'Enter a valid address');
+            return;
+        }
+        writeTransfer(
+            {
+                address: DICE_GAME_ADDRESS,
+                abi: DICE_GAME_ABI,
+                functionName: 'transferOwnership',
+                args: [newOwner as `0x${string}`],
                 chainId: activeChain.id,
             },
             {
@@ -141,7 +185,7 @@ const OwnerPanel: React.FC<OwnerPanelProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         {/* Withdraw */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 mb-5">
                             <label className="text-[10px] text-gray-500 font-mono font-semibold uppercase">
                                 Withdraw USDC
                             </label>
@@ -157,17 +201,51 @@ const OwnerPanel: React.FC<OwnerPanelProps> = ({ isOpen, onClose }) => {
                                 />
                                 <button
                                     onClick={handleWithdraw}
-                                    disabled={isPending || isConfirming}
+                                    disabled={isWithdrawPending || isWithdrawConfirming}
                                     className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:bg-primary/30 disabled:cursor-not-allowed text-black font-mono font-bold text-xs px-4 py-2 rounded-lg transition-colors"
                                 >
-                                    {isPending || isConfirming ? (
+                                    {isWithdrawPending || isWithdrawConfirming ? (
                                         <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                                     ) : (
                                         <ArrowDownToLine className="w-3.5 h-3.5" />
                                     )}
-                                    {isPending ? 'Sign...' : isConfirming ? 'Confirming...' : 'Withdraw'}
+                                    {isWithdrawPending ? 'Sign...' : isWithdrawConfirming ? 'Confirming...' : 'Withdraw'}
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-t border-white/5 mb-5" />
+
+                        {/* Transfer Ownership */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-500 font-mono font-semibold uppercase">
+                                Transfer Ownership
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="0x..."
+                                    value={newOwner}
+                                    onChange={(e) => setNewOwner(e.target.value)}
+                                    className="flex-1 bg-background border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 outline-none focus:border-primary/50 transition-colors"
+                                />
+                                <button
+                                    onClick={handleTransferOwnership}
+                                    disabled={isTransferPending || isTransferConfirming}
+                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-500/90 disabled:bg-red-500/30 disabled:cursor-not-allowed text-white font-mono font-bold text-xs px-4 py-2 rounded-lg transition-colors"
+                                >
+                                    {isTransferPending || isTransferConfirming ? (
+                                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <UserRoundCog className="w-3.5 h-3.5" />
+                                    )}
+                                    {isTransferPending ? 'Sign...' : isTransferConfirming ? 'Confirming...' : 'Transfer'}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-red-400/60 font-mono mt-1">
+                                Warning: this action is irreversible
+                            </p>
                         </div>
                     </motion.div>
                 </motion.div>
