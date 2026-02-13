@@ -13,9 +13,11 @@ import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis
 import { activeChain } from './config';
 import { saveBet } from './api';
 import { useGaslessRoll } from './hooks/useGaslessRoll';
+import { getXOAlias } from './connectors/xo-connector';
+import { Wallet } from 'lucide-react';
 
 function App() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
 
   // Read USDC Balance
   const { data: usdcBalance } = useReadContract({
@@ -28,6 +30,10 @@ function App() {
   });
 
   const balance = usdcBalance ? parseFloat(formatUnits(usdcBalance, 6)) : 0;
+  const userBalanceDisplay = Math.trunc(balance * 100) / 100;
+  const isXO = connector?.id === 'xo-connect';
+  const alias = isXO ? getXOAlias() : null;
+  const displayName = alias || (address ? address.slice(0, 6) + '...' + address.slice(-4) : '');
 
   // Read Bankroll (Contract Balance)
   const { data: bankroll } = useReadContract({
@@ -192,6 +198,22 @@ function App() {
             isRolling={isRolling}
             isWin={lastBetIsWin}
           />
+
+          {/* User Balance & Name */}
+          {isConnected && (
+            <div className="w-full max-w-sm px-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse-dot shrink-0" />
+                <span className="text-xs font-mono font-semibold text-white">
+                  {displayName}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Wallet className="w-3 h-3 text-primary" />
+                <span className="text-xs font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
 
           <ActionButtons
             onRollUnder={() => handleRoll('under')}
