@@ -136,10 +136,23 @@ function App() {
     }
   }, [isRollConfirmed, rollReceipt]);
 
-  // Show relay errors as toast
+  // Show relay errors as toast (user-friendly messages)
   useEffect(() => {
     if (relayError) {
-      showToast('error', relayError.message?.split('.')[0] || 'Transaction failed');
+      const raw = relayError.message || '';
+      let friendly: string;
+      if (/gas required exceeds allowance/i.test(raw) || /execution reverted/i.test(raw)) {
+        friendly = 'En este momento no podemos ejecutar, espera un momento';
+      } else if (/insufficient/i.test(raw) && /balance/i.test(raw)) {
+        friendly = 'Saldo USDC insuficiente';
+      } else if (/nonce/i.test(raw)) {
+        friendly = 'Error de sincronización, intenta de nuevo';
+      } else if (/user rejected/i.test(raw) || /user denied/i.test(raw)) {
+        friendly = 'Transacción cancelada por el usuario';
+      } else {
+        friendly = raw.split('.')[0] || 'Error en la transacción, intenta de nuevo';
+      }
+      showToast('error', friendly);
     }
   }, [relayError]);
 
