@@ -11,7 +11,7 @@ import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi
 import { formatUnits, decodeEventLog } from 'viem';
 import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
 import { activeChain } from './config';
-import { saveBet } from './api';
+import { saveBet, fetchBets } from './api';
 import { useGaslessRoll } from './hooks/useGaslessRoll';
 import { getXOAlias } from './connectors/xo-connector';
 import { Wallet } from 'lucide-react';
@@ -57,6 +57,22 @@ function App() {
     roll: number;
   } | null>(null);
   const [lastBetIsWin, setLastBetIsWin] = useState<boolean | null>(null);
+
+  // Load user's bet history from MongoDB on wallet connect
+  useEffect(() => {
+    if (!address) return;
+    fetchBets(50, address).then(bets => {
+      if (bets.length === 0) return;
+      const items: HistoryItem[] = bets.map(b => ({
+        id: Date.parse(b.createdAt) || Date.now(),
+        result: b.result,
+        target: b.target,
+        isWin: b.isWin,
+        amount: b.isWin ? b.payout : b.amount,
+      }));
+      setHistory(items);
+    });
+  }, [address]);
 
   const targetValueRef = useRef(targetValue);
   useEffect(() => {
