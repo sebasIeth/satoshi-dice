@@ -29,9 +29,10 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
     const load = () => {
       setIsLoading(true);
-      fetchBets(20).then(data => {
+      fetchBets(100).then(data => {
         setBets(data);
         setIsLoading(false);
       });
