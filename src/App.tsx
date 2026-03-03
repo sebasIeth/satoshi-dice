@@ -78,47 +78,53 @@ function App() {
   useEffect(() => {
     if (isRollConfirmed && rollReceipt) {
       for (const log of rollReceipt.logs) {
+        // Only catch decodeEventLog errors (non-DiceGame events)
+        let decoded;
         try {
-          const decoded = decodeEventLog({
+          decoded = decodeEventLog({
             abi: DICE_GAME_ABI,
             data: log.data,
             topics: log.topics,
           });
+        } catch {
+          continue; // Not a DiceGame event, skip
+        }
 
-          if (decoded.eventName === 'BetPlaced') {
-            const { roll, isWin, payout: payoutRaw, amount: amountRaw } = decoded.args;
-            const payout = payoutRaw ? parseFloat(formatUnits(payoutRaw, 6)) : 0;
-            const amount = amountRaw ? parseFloat(formatUnits(amountRaw, 6)) : 0;
-            const currentTarget = targetValueRef.current;
+        if (decoded.eventName === 'BetPlaced') {
+          const { roll, isWin, payout: payoutRaw, amount: amountRaw } = decoded.args;
+          const payout = payoutRaw ? parseFloat(formatUnits(payoutRaw, 6)) : 0;
+          const amount = amountRaw ? parseFloat(formatUnits(amountRaw, 6)) : 0;
+          const currentTarget = targetValueRef.current;
 
-            setResult(Number(roll));
-            setLastBetIsWin(isWin || false);
+          setResult(Number(roll));
+          setLastBetIsWin(isWin || false);
 
-            setLastRollResult({
-              txHash: rollReceipt.transactionHash,
-              blockNumber: Number(rollReceipt.blockNumber),
-              player: address!,
-              roll: Number(roll)
-            });
+          setLastRollResult({
+            txHash: rollReceipt.transactionHash,
+            blockNumber: Number(rollReceipt.blockNumber),
+            player: address!,
+            roll: Number(roll)
+          });
 
-            const newItem: HistoryItem = {
-              id: Date.now(),
-              result: Number(roll),
-              target: currentTarget,
-              isWin: isWin || false,
-              amount: isWin ? payout : amount
-            };
-            setHistory(prev => [newItem, ...prev]);
+          const newItem: HistoryItem = {
+            id: Date.now(),
+            result: Number(roll),
+            target: currentTarget,
+            isWin: isWin || false,
+            amount: isWin ? payout : amount
+          };
+          setHistory(prev => [newItem, ...prev]);
 
-            // Show toast notification
-            if (isWin) {
-              showToast('success', `You won $${payout.toFixed(2)} USDC! Rolled ${roll}`);
-            } else {
-              showToast('error', `You lost $${amount.toFixed(2)} USDC. Rolled ${roll}`);
-            }
+          // Show toast notification
+          if (isWin) {
+            showToast('success', `You won $${payout.toFixed(2)} USDC! Rolled ${roll}`);
+          } else {
+            showToast('error', `You lost $${amount.toFixed(2)} USDC. Rolled ${roll}`);
+          }
 
-            // Persist to MongoDB (fire-and-forget), refresh global history regardless
-            saveBet({
+          // Persist to MongoDB with retry, refresh global history regardless
+          const persistBet = async () => {
+            const payload = {
               player: address!,
               amount,
               result: Number(roll),
@@ -127,10 +133,19 @@ function App() {
               isWin: isWin || false,
               payout,
               txHash: rollReceipt.transactionHash,
-            }).finally(() => setBetCount(c => c + 1));
-          }
-        } catch {
-          // Ignore other events
+            };
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                await saveBet(payload);
+                return;
+              } catch (err) {
+                console.error(`saveBet attempt ${attempt + 1} failed:`, err);
+                if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+              }
+            }
+            showToast('warning', 'Jugada no guardada en el historial');
+          };
+          persistBet().finally(() => setBetCount(c => c + 1));
         }
       }
     }
