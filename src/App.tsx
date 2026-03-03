@@ -117,7 +117,7 @@ function App() {
               showToast('error', `You lost $${amount.toFixed(2)} USDC. Rolled ${roll}`);
             }
 
-            // Persist to MongoDB (fire-and-forget)
+            // Persist to MongoDB (fire-and-forget), refresh global history regardless
             saveBet({
               player: address!,
               amount,
@@ -127,7 +127,7 @@ function App() {
               isWin: isWin || false,
               payout,
               txHash: rollReceipt.transactionHash,
-            }).then(() => setBetCount(c => c + 1));
+            }).finally(() => setBetCount(c => c + 1));
           }
         } catch {
           // Ignore other events
