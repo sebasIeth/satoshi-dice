@@ -17,14 +17,14 @@ export interface BetRecord extends BetPayload {
 }
 
 export async function saveBet(bet: BetPayload): Promise<void> {
-  try {
-    await fetch(`${API_BASE}/bets`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bet),
-    });
-  } catch (err) {
-    console.error('Failed to save bet:', err);
+  const res = await fetch(`${API_BASE}/bets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bet),
+  });
+  // 409 = duplicate txHash, bet already saved — not an error
+  if (!res.ok && res.status !== 409) {
+    throw new Error(`Save bet failed (${res.status})`);
   }
 }
 
