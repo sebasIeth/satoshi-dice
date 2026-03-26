@@ -73,6 +73,28 @@ export async function relayRoll(params: RelayParams): Promise<{ txHash: string }
   throw new Error('Relay failed after retries');
 }
 
+export interface LeaderboardEntry {
+  player: string;
+  totalBets: number;
+  wins: number;
+  losses: number;
+  totalWon: number;
+  totalWagered: number;
+  netProfit: number;
+  winRate: number;
+}
+
+export async function fetchLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetch(`${API_BASE}/leaderboard?limit=${limit}`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to fetch leaderboard:', err);
+    return [];
+  }
+}
+
 export async function fetchBets(limit = 50, player?: string): Promise<BetRecord[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) });

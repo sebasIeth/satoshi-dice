@@ -5,6 +5,7 @@ import BetControls from './components/BetControls';
 import ActionButtons from './components/ActionButtons';
 import History, { type HistoryItem } from './components/History';
 import GlobalHistory from './components/GlobalHistory';
+import Leaderboard from './components/Leaderboard';
 import ProvablyFair from './components/ProvablyFair';
 import Toast, { showToast } from './components/Toast';
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -242,6 +243,8 @@ function App() {
           <History history={history} />
 
           <GlobalHistory refreshKey={betCount} />
+
+          <Leaderboard refreshKey={betCount} />
 
           <div className="mt-auto w-full">
             <ProvablyFair lastResult={lastRollResult} />

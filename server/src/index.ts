@@ -4,6 +4,7 @@ import cors from 'cors';
 import { connectDB } from './db.js';
 import betsRouter from './routes/bets.js';
 import relayRouter from './routes/relay.js';
+import leaderboardRouter from './routes/leaderboard.js';
 
 const app = express();
 
@@ -25,6 +26,8 @@ app.use('/api/bets', betsRouter);
 app.use('/api/relay', relayRouter);
 app.use('/bets', betsRouter);
 app.use('/relay', relayRouter);
+app.use('/api/leaderboard', leaderboardRouter);
+app.use('/leaderboard', leaderboardRouter);
 
 // Local dev: listen on port
 if (process.env.NODE_ENV !== 'production') {
