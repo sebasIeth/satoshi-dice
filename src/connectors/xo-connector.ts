@@ -25,7 +25,7 @@ export function xoConnector() {
       void parameters;
 
       provider = new XOConnectProvider({
-        debug: true,
+        debug: import.meta.env.DEV,
         defaultChainId: CHAIN_ID_HEX,
         rpcs: { [CHAIN_ID_HEX]: RPC_URL },
       });
