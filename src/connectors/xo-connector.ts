@@ -1,11 +1,10 @@
 import { createConnector } from 'wagmi';
 import { XOConnectProvider } from 'xo-connect';
 import type { Address } from 'viem';
-import { activeChain } from '../config';
+import { activeChain, RPC_URL } from '../config';
 
 const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
 const CHAIN_ID_HEX = isMainnet ? '0x2105' : '0x14a34'; // 8453 or 84532
-const RPC_URL = isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org';
 
 let xoAlias: string | null = null;
 

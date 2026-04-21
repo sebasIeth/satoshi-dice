@@ -236,9 +236,12 @@ function App() {
                   {displayName}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Wallet className="w-3 h-3 text-primary" />
-                <span className="text-xs font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-primary" />
+                <div className="flex flex-col items-end">
+                  <span className="text-base font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
+                  <span className="text-[9px] font-mono text-gray-500">{balance.toFixed(2)} USDC</span>
+                </div>
               </div>
             </div>
           )}

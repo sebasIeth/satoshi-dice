@@ -13,6 +13,7 @@ const PROJECT_ID = 'YOUR_PROJECT_ID';
 
 const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
 export const activeChain = isMainnet ? base : baseSepolia;
+export const RPC_URL = import.meta.env.VITE_RPC_URL || (isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org');
 
 const rainbowConnectors = connectorsForWallets(
     [
@@ -28,12 +29,12 @@ export const config = createConfig({
     chains: [activeChain],
     connectors: [xoConnector(), ...rainbowConnectors],
     transports: {
-        [base.id]: http('https://mainnet.base.org', {
+        [base.id]: http(isMainnet ? RPC_URL : 'https://mainnet.base.org', {
             retryCount: 3,
             retryDelay: 200,
             timeout: 15_000,
         }),
-        [baseSepolia.id]: http('https://sepolia.base.org', {
+        [baseSepolia.id]: http(!isMainnet ? RPC_URL : 'https://sepolia.base.org', {
             retryCount: 3,
             retryDelay: 200,
             timeout: 15_000,
