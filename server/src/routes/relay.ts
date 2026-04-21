@@ -105,7 +105,16 @@ router.post('/', async (req, res) => {
     res.json({ txHash });
   } catch (err: any) {
     console.error('Relay error:', err);
-    res.status(500).json({ error: err?.shortMessage || err?.message || 'Relay failed' });
+    res.status(500).json({
+      error: err?.shortMessage || err?.message || 'Relay failed',
+      details: {
+        shortMessage: err?.shortMessage,
+        message: err?.message,
+        cause: err?.cause?.message || err?.cause?.shortMessage,
+        metaMessages: err?.metaMessages,
+        name: err?.name,
+      },
+    });
   }
 });
 

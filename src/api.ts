@@ -50,7 +50,8 @@ export async function relayRoll(params: RelayParams): Promise<{ txHash: string }
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        const errorMsg = data.error || `Relay failed (${res.status})`;
+        const details = data.details ? ` | ${JSON.stringify(data.details)}` : '';
+        const errorMsg = (data.error || `Relay failed (${res.status})`) + details;
         // Only retry on 500+ server errors, not 4xx client errors
         if (res.status >= 500 && attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
