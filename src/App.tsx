@@ -13,7 +13,7 @@ import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis
 import { activeChain } from './config';
 import { saveBet } from './api';
 import { useGaslessRoll } from './hooks/useGaslessRoll';
-import { getXOAlias } from './connectors/xo-connector';
+import { getXOAlias, getXODebug } from './connectors/xo-connector';
 import { Wallet } from 'lucide-react';
 
 function App() {
@@ -242,6 +242,7 @@ function App() {
                   <span className="text-base font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
                   <span className="text-[9px] font-mono text-gray-500">{balance.toFixed(2)} USDC</span>
                   <span className="text-[8px] font-mono text-yellow-400 break-all">addr: {address || 'undefined'}</span>
+                  <span className="text-[7px] font-mono text-red-400 break-all">xo: {getXODebug() || 'no debug'}</span>
                 </div>
               </div>
             </div>

@@ -7,9 +7,14 @@ const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
 const CHAIN_ID_HEX = isMainnet ? '0x2105' : '0x14a34'; // 8453 or 84532
 
 let xoAlias: string | null = null;
+let xoDebugInfo: string = '';
 
 export function getXOAlias(): string | null {
   return xoAlias;
+}
+
+export function getXODebug(): string {
+  return xoDebugInfo;
 }
 
 export function xoConnector() {
@@ -29,12 +34,18 @@ export function xoConnector() {
         rpcs: { [CHAIN_ID_HEX]: RPC_URL },
       });
 
-      const accounts = (await provider.request({
+      const rawAccounts = await provider.request({
         method: 'eth_requestAccounts',
-      })) as readonly Address[];
+      });
+      console.warn('[XO DEBUG] raw accounts:', JSON.stringify(rawAccounts));
+
+      const accounts = (Array.isArray(rawAccounts) ? rawAccounts : [rawAccounts]).filter(Boolean) as Address[];
+      console.warn('[XO DEBUG] parsed accounts:', JSON.stringify(accounts));
 
       const client = await provider.getClient();
       xoAlias = client?.alias || null;
+      console.warn('[XO DEBUG] alias:', xoAlias, 'client keys:', client ? Object.keys(client) : 'null');
+      xoDebugInfo = `raw:${JSON.stringify(rawAccounts)} | parsed:${JSON.stringify(accounts)} | alias:${xoAlias}`;
 
       const chainId = activeChain.id;
 
