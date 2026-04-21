@@ -44,8 +44,8 @@ export function xoConnector() {
 
       const client = await provider.getClient();
       xoAlias = client?.alias || null;
-      console.warn('[XO DEBUG] alias:', xoAlias, 'client keys:', client ? Object.keys(client) : 'null');
-      xoDebugInfo = `raw:${JSON.stringify(rawAccounts)} | parsed:${JSON.stringify(accounts)} | alias:${xoAlias}`;
+      console.warn('[XO DEBUG] alias:', xoAlias, 'client:', JSON.stringify(client));
+      xoDebugInfo = `client:${JSON.stringify(client)}`;
 
       const chainId = activeChain.id;
 
