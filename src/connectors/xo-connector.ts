@@ -7,14 +7,17 @@ const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
 const CHAIN_ID_HEX = isMainnet ? '0x2105' : '0x14a34'; // 8453 or 84532
 
 let xoAlias: string | null = null;
-let xoDebugInfo: string = '';
 
 export function getXOAlias(): string | null {
   return xoAlias;
 }
 
-export function getXODebug(): string {
-  return xoDebugInfo;
+function getEvmAddress(client: any): Address | null {
+  if (!client?.currencies) return null;
+  // Look for an EVM currency (0x-prefixed address) — prefer ETH chain
+  const evm = client.currencies.find((c: any) => c.symbol === 'ETH' && c.address?.startsWith('0x'))
+    || client.currencies.find((c: any) => c.address?.startsWith('0x'));
+  return evm?.address as Address || null;
 }
 
 export function xoConnector() {
@@ -34,18 +37,20 @@ export function xoConnector() {
         rpcs: { [CHAIN_ID_HEX]: RPC_URL },
       });
 
+      // Try standard EIP-1102 first
       const rawAccounts = await provider.request({
         method: 'eth_requestAccounts',
       });
-      console.warn('[XO DEBUG] raw accounts:', JSON.stringify(rawAccounts));
-
-      const accounts = (Array.isArray(rawAccounts) ? rawAccounts : [rawAccounts]).filter(Boolean) as Address[];
-      console.warn('[XO DEBUG] parsed accounts:', JSON.stringify(accounts));
+      let accounts = (Array.isArray(rawAccounts) ? rawAccounts : [rawAccounts]).filter(Boolean) as Address[];
 
       const client = await provider.getClient();
       xoAlias = client?.alias || null;
-      console.warn('[XO DEBUG] alias:', xoAlias, 'client:', JSON.stringify(client));
-      xoDebugInfo = `client:${JSON.stringify(client)}`;
+
+      // Fallback: extract EVM address from client currencies if eth_requestAccounts returned empty
+      if (accounts.length === 0) {
+        const evmAddr = getEvmAddress(client);
+        if (evmAddr) accounts = [evmAddr];
+      }
 
       const chainId = activeChain.id;
 
@@ -63,10 +68,14 @@ export function xoConnector() {
 
     async getAccounts() {
       if (!provider) return [];
-      const accounts = (await provider.request({
+      const raw = (await provider.request({
         method: 'eth_accounts',
       })) as Address[];
-      return accounts;
+      if (raw.length > 0) return raw;
+      // Fallback: extract from client
+      const client = await provider.getClient();
+      const evmAddr = getEvmAddress(client);
+      return evmAddr ? [evmAddr] : [];
     },
 
     async getChainId() {
