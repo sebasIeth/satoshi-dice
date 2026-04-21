@@ -243,18 +243,7 @@ function App() {
                 <div className="flex flex-col items-end">
                   <span className="text-base font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
                   <span className="text-[9px] font-mono text-gray-500">{balance.toFixed(2)} USDC</span>
-                  <span className="text-[8px] font-mono text-yellow-400 break-all">addr: {address || 'undefined'}</span>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {lastRelayError && (
-            <div className="w-full max-w-sm px-4">
-              <div className="bg-red-900/40 border border-red-500/30 rounded-lg p-2 mt-1">
-                <span className="text-[8px] font-mono text-red-300 break-all block">
-                  RELAY ERROR: {lastRelayError}
-                </span>
               </div>
             </div>
           )}
