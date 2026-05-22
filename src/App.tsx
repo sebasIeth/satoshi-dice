@@ -21,10 +21,11 @@ import { Wallet } from 'lucide-react';
 function App() {
   const { address, isConnected, connector } = useAccount();
   const walletChainId = useChainId();
-  const { switchChain } = useSwitchChain();
+  const { switchChainAsync } = useSwitchChain();
 
   // Chain selection state
   const [selectedChainId, setSelectedChainId] = useState<number>(DEFAULT_CHAIN_ID);
+  const [isSwitchingChain, setIsSwitchingChain] = useState(false);
 
   // Sync wallet chain → UI when wallet switches
   useEffect(() => {
@@ -35,10 +36,30 @@ function App() {
 
   const chainConfig: ChainConfig = CHAIN_CONFIGS[selectedChainId] || CHAIN_CONFIGS[DEFAULT_CHAIN_ID]!;
 
-  const handleChainSelect = (chainId: number) => {
+  const handleChainSelect = async (chainId: number) => {
     setSelectedChainId(chainId);
     if (isConnected) {
-      switchChain({ chainId });
+      setIsSwitchingChain(true);
+      try {
+        await switchChainAsync({ chainId });
+      } catch (err: any) {
+        // If wallet doesn't support switching, just update UI state
+        console.warn('Chain switch failed:', err.message);
+      } finally {
+        setIsSwitchingChain(false);
+      }
+    }
+  };
+
+  // Ensure wallet is on the correct chain before rolling
+  const ensureCorrectChain = async (): Promise<boolean> => {
+    if (walletChainId === selectedChainId) return true;
+    try {
+      await switchChainAsync({ chainId: selectedChainId });
+      return true;
+    } catch (err: any) {
+      showToast('error', `Cambia tu wallet a ${chainConfig.chain.name} para jugar`);
+      return false;
     }
   };
 
@@ -228,9 +249,9 @@ function App() {
     }
   }, [rollError]);
 
-  const isRolling = isSubmitting || isRollConfirming;
+  const isRolling = isSwitchingChain || isSubmitting || isRollConfirming;
 
-  const handleRoll = (direction: 'under' | 'over') => {
+  const handleRoll = async (direction: 'under' | 'over') => {
     if (!isConnected) {
       showToast('warning', 'Please connect your wallet first');
       return;
@@ -241,6 +262,10 @@ function App() {
       showToast('warning', `Insufficient ${chainConfig.token} balance`);
       return;
     }
+
+    // Ensure wallet is on the correct chain
+    const onCorrectChain = await ensureCorrectChain();
+    if (!onCorrectChain) return;
 
     setResult(null);
     setLastBetIsWin(null);

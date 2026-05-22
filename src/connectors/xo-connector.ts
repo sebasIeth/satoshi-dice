@@ -4,9 +4,9 @@ import type { Address } from 'viem';
 import { DEFAULT_CHAIN_ID, CHAIN_CONFIGS } from '../chains';
 
 const defaultConfig = CHAIN_CONFIGS[DEFAULT_CHAIN_ID]!;
-const CHAIN_ID_HEX = `0x${DEFAULT_CHAIN_ID.toString(16)}`;
 
 let xoAlias: string | null = null;
+let currentChainId: number = DEFAULT_CHAIN_ID;
 
 export function getXOAlias(): string | null {
   return xoAlias;
@@ -30,10 +30,12 @@ export function xoConnector() {
     async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
       void parameters;
 
+      const chainIdHex = `0x${DEFAULT_CHAIN_ID.toString(16)}`;
+
       provider = new XOConnectProvider({
         debug: import.meta.env.DEV,
-        defaultChainId: CHAIN_ID_HEX,
-        rpcs: { [CHAIN_ID_HEX]: defaultConfig.rpcUrl },
+        defaultChainId: chainIdHex,
+        rpcs: { [chainIdHex]: defaultConfig.rpcUrl },
       });
 
       const rawAccounts = await provider.request({
@@ -49,17 +51,18 @@ export function xoConnector() {
         if (evmAddr) accounts = [evmAddr];
       }
 
-      const chainId = DEFAULT_CHAIN_ID;
+      currentChainId = DEFAULT_CHAIN_ID;
 
-      config.emitter.emit('connect', { accounts, chainId });
+      config.emitter.emit('connect', { accounts, chainId: currentChainId });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { accounts, chainId } as any;
+      return { accounts, chainId: currentChainId } as any;
     },
 
     async disconnect() {
       provider = null;
       xoAlias = null;
+      currentChainId = DEFAULT_CHAIN_ID;
       config.emitter.emit('disconnect');
     },
 
@@ -75,7 +78,33 @@ export function xoConnector() {
     },
 
     async getChainId() {
-      return DEFAULT_CHAIN_ID;
+      return currentChainId;
+    },
+
+    async switchChain({ chainId }: { chainId: number }) {
+      // XO wallet doesn't natively support chain switching,
+      // so we track it locally and let wagmi handle the RPC routing
+      const chainCfg = CHAIN_CONFIGS[chainId];
+      if (!chainCfg) throw new Error(`Unsupported chain: ${chainId}`);
+
+      currentChainId = chainId;
+
+      // Try to ask the provider to switch (may not be supported)
+      if (provider) {
+        try {
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${chainId.toString(16)}` }],
+          });
+        } catch {
+          // Provider doesn't support switching — that's OK,
+          // wagmi will route RPCs through the configured transport
+        }
+      }
+
+      config.emitter.emit('change', { chainId });
+
+      return chainCfg.chain;
     },
 
     async getProvider() {
@@ -98,8 +127,9 @@ export function xoConnector() {
     },
 
     onChainChanged(chainId) {
+      currentChainId = Number(chainId);
       config.emitter.emit('change', {
-        chainId: Number(chainId),
+        chainId: currentChainId,
       });
     },
 
