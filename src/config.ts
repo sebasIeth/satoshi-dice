@@ -1,5 +1,4 @@
 import { createConfig, http } from 'wagmi';
-import { base, baseSepolia } from 'wagmi/chains';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import {
     metaMaskWallet,
@@ -8,12 +7,9 @@ import {
     rainbowWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { xoConnector } from './connectors/xo-connector';
+import { SUPPORTED_CHAINS, CHAIN_CONFIGS } from './chains';
 
 const PROJECT_ID = 'YOUR_PROJECT_ID';
-
-const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
-export const activeChain = isMainnet ? base : baseSepolia;
-export const RPC_URL = import.meta.env.VITE_RPC_URL || (isMainnet ? 'https://mainnet.base.org' : 'https://sepolia.base.org');
 
 const rainbowConnectors = connectorsForWallets(
     [
@@ -25,20 +21,21 @@ const rainbowConnectors = connectorsForWallets(
     { appName: 'Satoshi Dice', projectId: PROJECT_ID },
 );
 
+const transports: Record<number, ReturnType<typeof http>> = {};
+for (const chain of SUPPORTED_CHAINS) {
+    const cfg = CHAIN_CONFIGS[chain.id];
+    if (cfg) {
+        transports[chain.id] = http(cfg.rpcUrl, {
+            retryCount: 3,
+            retryDelay: 200,
+            timeout: 15_000,
+        });
+    }
+}
+
 export const config = createConfig({
-    chains: [activeChain],
+    chains: SUPPORTED_CHAINS,
     connectors: [xoConnector(), ...rainbowConnectors],
-    transports: {
-        [base.id]: http(isMainnet ? RPC_URL : 'https://mainnet.base.org', {
-            retryCount: 3,
-            retryDelay: 200,
-            timeout: 15_000,
-        }),
-        [baseSepolia.id]: http(!isMainnet ? RPC_URL : 'https://sepolia.base.org', {
-            retryCount: 3,
-            retryDelay: 200,
-            timeout: 15_000,
-        }),
-    },
+    transports: transports as any,
     ssr: false,
 });

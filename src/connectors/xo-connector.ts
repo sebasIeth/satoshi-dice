@@ -1,10 +1,10 @@
 import { createConnector } from 'wagmi';
 import { XOConnectProvider } from 'xo-connect';
 import type { Address } from 'viem';
-import { activeChain, RPC_URL } from '../config';
+import { DEFAULT_CHAIN_ID, CHAIN_CONFIGS } from '../chains';
 
-const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
-const CHAIN_ID_HEX = isMainnet ? '0x2105' : '0x14a34'; // 8453 or 84532
+const defaultConfig = CHAIN_CONFIGS[DEFAULT_CHAIN_ID]!;
+const CHAIN_ID_HEX = `0x${DEFAULT_CHAIN_ID.toString(16)}`;
 
 let xoAlias: string | null = null;
 
@@ -14,7 +14,6 @@ export function getXOAlias(): string | null {
 
 function getEvmAddress(client: any): Address | null {
   if (!client?.currencies) return null;
-  // Look for an EVM currency (0x-prefixed address) — prefer ETH chain
   const evm = client.currencies.find((c: any) => c.symbol === 'ETH' && c.address?.startsWith('0x'))
     || client.currencies.find((c: any) => c.address?.startsWith('0x'));
   return evm?.address as Address || null;
@@ -34,10 +33,9 @@ export function xoConnector() {
       provider = new XOConnectProvider({
         debug: import.meta.env.DEV,
         defaultChainId: CHAIN_ID_HEX,
-        rpcs: { [CHAIN_ID_HEX]: RPC_URL },
+        rpcs: { [CHAIN_ID_HEX]: defaultConfig.rpcUrl },
       });
 
-      // Try standard EIP-1102 first
       const rawAccounts = await provider.request({
         method: 'eth_requestAccounts',
       });
@@ -46,13 +44,12 @@ export function xoConnector() {
       const client = await provider.getClient();
       xoAlias = client?.alias || null;
 
-      // Fallback: extract EVM address from client currencies if eth_requestAccounts returned empty
       if (accounts.length === 0) {
         const evmAddr = getEvmAddress(client);
         if (evmAddr) accounts = [evmAddr];
       }
 
-      const chainId = activeChain.id;
+      const chainId = DEFAULT_CHAIN_ID;
 
       config.emitter.emit('connect', { accounts, chainId });
 
@@ -72,14 +69,13 @@ export function xoConnector() {
         method: 'eth_accounts',
       })) as Address[];
       if (raw.length > 0) return raw;
-      // Fallback: extract from client
       const client = await provider.getClient();
       const evmAddr = getEvmAddress(client);
       return evmAddr ? [evmAddr] : [];
     },
 
     async getChainId() {
-      return activeChain.id;
+      return DEFAULT_CHAIN_ID;
     },
 
     async getProvider() {

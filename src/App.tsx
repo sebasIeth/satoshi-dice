@@ -7,46 +7,95 @@ import History, { type HistoryItem } from './components/History';
 import GlobalHistory from './components/GlobalHistory';
 import ProvablyFair from './components/ProvablyFair';
 import Toast, { showToast } from './components/Toast';
-import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import ChainSelector from './components/ChainSelector';
+import { useAccount, useReadContract, useWaitForTransactionReceipt, useBalance, useSwitchChain, useChainId } from 'wagmi';
 import { formatUnits, decodeEventLog } from 'viem';
-import { DICE_GAME_ABI, DICE_GAME_ADDRESS, USDC_ABI, USDC_ADDRESS } from './abis';
-import { activeChain } from './config';
+import { DICE_GAME_ABI, DICE_GAME_NATIVE_ABI, USDC_ABI } from './abis';
+import { CHAIN_CONFIGS, DEFAULT_CHAIN_ID, type ChainConfig } from './chains';
 import { saveBet } from './api';
 import { useGaslessRoll } from './hooks/useGaslessRoll';
+import { useNativeRoll } from './hooks/useNativeRoll';
 import { getXOAlias } from './connectors/xo-connector';
 import { Wallet } from 'lucide-react';
 
 function App() {
   const { address, isConnected, connector } = useAccount();
+  const walletChainId = useChainId();
+  const { switchChain } = useSwitchChain();
 
-  // Read USDC Balance
-  const { data: usdcBalance } = useReadContract({
-    address: USDC_ADDRESS,
+  // Chain selection state
+  const [selectedChainId, setSelectedChainId] = useState<number>(DEFAULT_CHAIN_ID);
+
+  // Sync wallet chain → UI when wallet switches
+  useEffect(() => {
+    if (walletChainId && CHAIN_CONFIGS[walletChainId]) {
+      setSelectedChainId(walletChainId);
+    }
+  }, [walletChainId]);
+
+  const chainConfig: ChainConfig = CHAIN_CONFIGS[selectedChainId] || CHAIN_CONFIGS[DEFAULT_CHAIN_ID]!;
+
+  const handleChainSelect = (chainId: number) => {
+    setSelectedChainId(chainId);
+    if (isConnected) {
+      switchChain({ chainId });
+    }
+  };
+
+  // ---- Balances ----
+  // ERC20 balance (Base, Polygon)
+  const { data: erc20Balance } = useReadContract({
+    address: chainConfig.tokenAddress!,
     abi: USDC_ABI,
     functionName: 'balanceOf',
     args: [address!],
-    chainId: activeChain.id,
-    query: { enabled: !!address, refetchInterval: 3000 }
+    chainId: chainConfig.chain.id,
+    query: { enabled: !!address && !chainConfig.isNative, refetchInterval: 3000 },
   });
 
-  const balance = usdcBalance ? parseFloat(formatUnits(usdcBalance, 6)) : 0;
-  const userBalanceDisplay = Math.trunc(balance * 100) / 100;
+  // Native balance (Rootstock)
+  const { data: nativeUserBalance } = useBalance({
+    address: address,
+    chainId: chainConfig.chain.id,
+    query: { enabled: !!address && chainConfig.isNative, refetchInterval: 3000 },
+  });
+
+  // ERC20 bankroll
+  const { data: erc20Bankroll } = useReadContract({
+    address: chainConfig.tokenAddress!,
+    abi: USDC_ABI,
+    functionName: 'balanceOf',
+    args: [chainConfig.diceGameAddress],
+    chainId: chainConfig.chain.id,
+    query: { enabled: !chainConfig.isNative, refetchInterval: 6000 },
+  });
+
+  // Native bankroll
+  const { data: nativeBankrollBalance } = useBalance({
+    address: chainConfig.diceGameAddress,
+    chainId: chainConfig.chain.id,
+    query: { enabled: chainConfig.isNative, refetchInterval: 6000 },
+  });
+
+  // Unified balance
+  const balance = chainConfig.isNative
+    ? (nativeUserBalance ? parseFloat(nativeUserBalance.formatted) : 0)
+    : (erc20Balance ? parseFloat(formatUnits(erc20Balance, chainConfig.decimals)) : 0);
+
+  const bankrollAmount = chainConfig.isNative
+    ? (nativeBankrollBalance ? parseFloat(nativeBankrollBalance.formatted) : 0)
+    : (erc20Bankroll ? parseFloat(formatUnits(erc20Bankroll, chainConfig.decimals)) : 0);
+
+  // Format balance display based on token type
+  const userBalanceDisplay = chainConfig.isNative
+    ? balance.toFixed(8)
+    : (Math.trunc(balance * 100) / 100).toFixed(2);
+
   const isXO = connector?.id === 'xo-connect';
   const alias = isXO ? getXOAlias() : null;
   const displayName = alias || (address ? address.slice(0, 6) + '...' + address.slice(-4) : '');
 
-  // Read Bankroll (Contract Balance)
-  const { data: bankroll } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: USDC_ABI,
-    functionName: 'balanceOf',
-    args: [DICE_GAME_ADDRESS],
-    chainId: activeChain.id,
-    query: { refetchInterval: 6000 }
-  });
-  const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
-
-  const betAmount = 0.10;
+  const betAmount = chainConfig.betAmount;
   const [targetValue, setTargetValue] = useState<number>(50);
   const [result, setResult] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -66,34 +115,40 @@ function App() {
   const directionRef = useRef<'under' | 'over'>('under');
   const [betCount, setBetCount] = useState(0);
 
-  // Gasless roll hook
-  const { gaslessRoll, isRelaying, relayTxHash, relayError } = useGaslessRoll();
+  // ---- Roll Hooks ----
+  const { gaslessRoll, isRelaying, relayTxHash, relayError } = useGaslessRoll(chainConfig);
+  const { nativeRoll, isRolling: isNativeRolling, txHash: nativeTxHash, error: nativeError } = useNativeRoll();
 
-  // Wait for relay transaction confirmation
+  // Unified tx hash and state
+  const activeTxHash = chainConfig.isNative ? nativeTxHash : relayTxHash;
+  const isSubmitting = chainConfig.isNative ? isNativeRolling : isRelaying;
+  const rollError = chainConfig.isNative ? nativeError : relayError;
+
+  // Wait for transaction confirmation
   const { isLoading: isRollConfirming, isSuccess: isRollConfirmed, data: rollReceipt } = useWaitForTransactionReceipt({
-    hash: relayTxHash,
+    hash: activeTxHash,
   });
 
   // Handle Roll Confirmation & Log Parsing
   useEffect(() => {
     if (isRollConfirmed && rollReceipt) {
+      const abi = chainConfig.isNative ? DICE_GAME_NATIVE_ABI : DICE_GAME_ABI;
       for (const log of rollReceipt.logs) {
-        // Only catch decodeEventLog errors (non-DiceGame events)
         let decoded;
         try {
           decoded = decodeEventLog({
-            abi: DICE_GAME_ABI,
+            abi,
             data: log.data,
             topics: log.topics,
           });
         } catch {
-          continue; // Not a DiceGame event, skip
+          continue;
         }
 
         if (decoded.eventName === 'BetPlaced') {
           const { roll, isWin, payout: payoutRaw, amount: amountRaw } = decoded.args;
-          const payout = payoutRaw ? parseFloat(formatUnits(payoutRaw, 6)) : 0;
-          const amount = amountRaw ? parseFloat(formatUnits(amountRaw, 6)) : 0;
+          const payout = payoutRaw ? parseFloat(formatUnits(payoutRaw, chainConfig.decimals)) : 0;
+          const amount = amountRaw ? parseFloat(formatUnits(amountRaw, chainConfig.decimals)) : 0;
           const currentTarget = targetValueRef.current;
 
           setResult(Number(roll));
@@ -115,14 +170,13 @@ function App() {
           };
           setHistory(prev => [newItem, ...prev]);
 
-          // Show toast notification
+          const tokenLabel = chainConfig.token;
           if (isWin) {
-            showToast('success', `You won $${payout.toFixed(2)} USDC! Rolled ${roll}`);
+            showToast('success', `You won ${payout.toFixed(chainConfig.isNative ? 8 : 2)} ${tokenLabel}! Rolled ${roll}`);
           } else {
-            showToast('error', `You lost $${amount.toFixed(2)} USDC. Rolled ${roll}`);
+            showToast('error', `You lost ${amount.toFixed(chainConfig.isNative ? 8 : 2)} ${tokenLabel}. Rolled ${roll}`);
           }
 
-          // Persist to MongoDB with retry, refresh global history regardless
           const persistBet = async () => {
             const payload = {
               player: address!,
@@ -133,6 +187,7 @@ function App() {
               isWin: isWin || false,
               payout,
               txHash: rollReceipt.transactionHash,
+              chain: chainConfig.key,
             };
             for (let attempt = 0; attempt < 3; attempt++) {
               try {
@@ -151,17 +206,17 @@ function App() {
     }
   }, [isRollConfirmed, rollReceipt]);
 
-  // Show relay errors as toast + store full error for debug display
-  const [lastRelayError, setLastRelayError] = useState<string | null>(null);
+  // Show roll errors as toast
+  const [, setLastRelayError] = useState<string | null>(null);
   useEffect(() => {
-    if (relayError) {
-      const raw = relayError.message || '';
+    if (rollError) {
+      const raw = rollError.message || '';
       setLastRelayError(raw);
       let friendly: string;
       if (/gas required exceeds allowance/i.test(raw) || /execution reverted/i.test(raw)) {
         friendly = 'En este momento no podemos ejecutar, espera un momento';
       } else if (/insufficient/i.test(raw) && /balance/i.test(raw)) {
-        friendly = 'Saldo USDC insuficiente';
+        friendly = `Saldo ${chainConfig.token} insuficiente`;
       } else if (/nonce/i.test(raw)) {
         friendly = 'Error de sincronización, intenta de nuevo';
       } else if (/user rejected/i.test(raw) || /user denied/i.test(raw)) {
@@ -171,17 +226,19 @@ function App() {
       }
       showToast('error', friendly);
     }
-  }, [relayError]);
+  }, [rollError]);
 
-  const isRolling = isRelaying || isRollConfirming;
+  const isRolling = isSubmitting || isRollConfirming;
 
   const handleRoll = (direction: 'under' | 'over') => {
     if (!isConnected) {
       showToast('warning', 'Please connect your wallet first');
       return;
     }
-    if (balance < betAmount + 0.01) {
-      showToast('warning', 'Insufficient USDC balance');
+
+    const totalNeeded = betAmount + chainConfig.fee;
+    if (balance < totalNeeded) {
+      showToast('warning', `Insufficient ${chainConfig.token} balance`);
       return;
     }
 
@@ -190,29 +247,37 @@ function App() {
     directionRef.current = direction;
 
     const isUnder = direction === 'under';
-    gaslessRoll(targetValue, isUnder, betAmount);
+
+    if (chainConfig.isNative) {
+      nativeRoll(targetValue, isUnder, chainConfig);
+    } else {
+      gaslessRoll(targetValue, isUnder, betAmount);
+    }
   };
 
   // Calculate Payouts
   const winChanceUnder = Math.max(1, targetValue);
   const payoutUnderVal = (betAmount * (99 / winChanceUnder));
-  const payoutUnder = payoutUnderVal.toFixed(4);
+  const payoutUnder = chainConfig.isNative ? payoutUnderVal.toFixed(8) : payoutUnderVal.toFixed(4);
 
   const winChanceOver = Math.max(1, 99 - targetValue);
   const payoutOverVal = (betAmount * (99 / winChanceOver));
-  const payoutOver = payoutOverVal.toFixed(4);
+  const payoutOver = chainConfig.isNative ? payoutOverVal.toFixed(8) : payoutOverVal.toFixed(4);
 
   const canPayUnder = bankrollAmount >= payoutUnderVal;
   const canPayOver = bankrollAmount >= payoutOverVal;
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background text-white font-sans selection:bg-primary/30 flex flex-col items-center">
-      {/* Main Mobile Container */}
       <div className="w-full max-w-[480px] min-h-screen min-h-[100dvh] bg-background relative shadow-2xl flex flex-col">
-        <Header />
+        <Header chainConfig={chainConfig} />
 
         <main className="flex-1 flex flex-col items-center justify-start py-2 gap-2 w-full">
 
+          <ChainSelector
+            selectedChainId={selectedChainId}
+            onSelect={handleChainSelect}
+          />
 
           <GameDial
             value={targetValue}
@@ -224,6 +289,9 @@ function App() {
 
           <BetControls
             betAmount={betAmount}
+            fee={chainConfig.fee}
+            token={chainConfig.token}
+            isNative={chainConfig.isNative}
             targetValue={targetValue}
             isRolling={isRolling}
             isWin={lastBetIsWin}
@@ -241,8 +309,12 @@ function App() {
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" />
                 <div className="flex flex-col items-end">
-                  <span className="text-base font-mono font-bold text-white">${userBalanceDisplay.toFixed(2)}</span>
-                  <span className="text-[9px] font-mono text-gray-500">{balance.toFixed(2)} USDC</span>
+                  <span className="text-base font-mono font-bold text-white">
+                    {chainConfig.isNative ? userBalanceDisplay : `$${userBalanceDisplay}`}
+                  </span>
+                  <span className="text-[9px] font-mono text-gray-500">
+                    {chainConfig.isNative ? balance.toFixed(8) : balance.toFixed(2)} {chainConfig.token}
+                  </span>
                 </div>
               </div>
             </div>
@@ -257,19 +329,20 @@ function App() {
             isRolling={isRolling}
             payoutUnder={payoutUnder}
             payoutOver={payoutOver}
+            token={chainConfig.token}
+            isNative={chainConfig.isNative}
           />
 
           <History history={history} />
 
-          <GlobalHistory refreshKey={betCount} />
+          <GlobalHistory refreshKey={betCount} chain={chainConfig.key} />
 
           <div className="mt-auto w-full">
-            <ProvablyFair lastResult={lastRollResult} />
+            <ProvablyFair lastResult={lastRollResult} chainConfig={chainConfig} />
           </div>
         </main>
       </div>
 
-      {/* Toast notifications */}
       <Toast />
     </div>
   );

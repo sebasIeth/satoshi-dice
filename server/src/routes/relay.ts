@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import { isAddress } from 'viem';
 import {
-  publicClient,
-  walletClient,
+  getChainRelayConfig,
+  getAvailableChains,
   relayerAccount,
-  DICE_GAME_ADDRESS,
-  USDC_ADDRESS,
   USDC_ABI,
   DICE_GAME_ABI,
 } from '../relayer.js';
@@ -14,7 +12,19 @@ const router = Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { player, target, isUnder, amount, deadline, v, r, s } = req.body;
+    const { player, target, isUnder, amount, deadline, v, r, s, chain } = req.body;
+
+    // Resolve chain config
+    const chainKey = chain || 'base';
+    const chainConfig = getChainRelayConfig(chainKey);
+    if (!chainConfig) {
+      res.status(400).json({
+        error: `Chain "${chainKey}" not configured. Available: ${getAvailableChains().join(', ')}`,
+      });
+      return;
+    }
+
+    const { publicClient, walletClient, diceGameAddress, usdcAddress } = chainConfig;
 
     // Validate params
     if (!player || !isAddress(player)) {
@@ -50,14 +60,14 @@ router.post('/', async (req, res) => {
 
     // Read fee from contract
     const feeBigInt = await publicClient.readContract({
-      address: DICE_GAME_ADDRESS,
+      address: diceGameAddress,
       abi: DICE_GAME_ABI,
       functionName: 'fee',
     });
 
-    // On-chain checks: player balance (must cover bet + fee)
+    // On-chain checks: player balance
     const playerBalance = await publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: 'balanceOf',
       args: [player as `0x${string}`],
@@ -70,13 +80,12 @@ router.post('/', async (req, res) => {
 
     // On-chain check: contract liquidity
     const contractBalance = await publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: 'balanceOf',
-      args: [DICE_GAME_ADDRESS],
+      args: [diceGameAddress],
     });
 
-    // Rough payout check (99x max multiplier)
     const winChance = isUnder ? target : 99 - target;
     const maxPayout = (amountBigInt * 99n) / BigInt(Math.max(1, winChance));
     if (contractBalance < maxPayout) {
@@ -86,7 +95,7 @@ router.post('/', async (req, res) => {
 
     // Send rollWithPermit transaction
     const txHash = await walletClient.writeContract({
-      address: DICE_GAME_ADDRESS,
+      address: diceGameAddress,
       abi: DICE_GAME_ABI,
       functionName: 'rollWithPermit',
       args: [

@@ -10,6 +10,7 @@ const betSchema = new mongoose.Schema(
     isWin: { type: Boolean, required: true },
     payout: { type: Number, required: true },
     txHash: { type: String, required: true, unique: true },
+    chain: { type: String, default: 'base', enum: ['base', 'polygon', 'rootstock'], index: true },
   },
   { timestamps: true }
 );

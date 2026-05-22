@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { fetchBets, type BetRecord } from '../api';
+import type { ChainKey } from '../chains';
 import { clsx } from 'clsx';
 import { ChevronDown, ChevronUp, Globe } from 'lucide-react';
 
 interface GlobalHistoryProps {
   refreshKey: number;
+  chain: ChainKey;
 }
 
 function timeAgo(dateStr: string): string {
@@ -21,9 +23,15 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+const chainLabels: Record<ChainKey, string> = {
+  base: 'Base',
+  polygon: 'Polygon',
+  rootstock: 'RSK',
+};
+
 const PAGE_SIZE = 20;
 
-const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
+const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey, chain }) => {
   const [bets, setBets] = useState<BetRecord[]>([]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +40,7 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
     setVisibleCount(PAGE_SIZE);
     const load = () => {
       setIsLoading(true);
-      fetchBets(100).then(data => {
+      fetchBets(100, undefined, chain).then(data => {
         setBets(data);
         setIsLoading(false);
       });
@@ -40,7 +48,7 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
     load();
     const interval = setInterval(load, 10_000);
     return () => clearInterval(interval);
-  }, [refreshKey]);
+  }, [refreshKey, chain]);
 
   const truncate = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const visibleBets = bets.slice(0, visibleCount);
@@ -51,13 +59,14 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
       <div className="flex justify-between items-center mb-2 px-1">
         <div className="flex items-center gap-1.5">
           <Globe className="w-3 h-3 text-gray-500" />
-          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-wider font-semibold">Global History</span>
+          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-wider font-semibold">
+            {chainLabels[chain]} History
+          </span>
         </div>
         <span className="text-[10px] font-mono text-gray-600">{bets.length} bets</span>
       </div>
 
       <div className="bg-surface/30 rounded-xl border border-white/5 overflow-hidden">
-        {/* Table Header */}
         <div className="flex items-center justify-between px-3 py-2 text-[9px] font-mono text-gray-500 uppercase tracking-wider border-b border-white/5 bg-white/[0.02]">
           <div className="flex items-center gap-3">
             <span className="w-[72px]">Player</span>
@@ -70,7 +79,6 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
           </div>
         </div>
 
-        {/* Loading skeleton */}
         {isLoading && bets.length === 0 ? (
           <div className="p-2 space-y-1">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -124,7 +132,6 @@ const GlobalHistory: React.FC<GlobalHistoryProps> = ({ refreshKey }) => {
               </div>
             ))}
 
-            {/* Load more */}
             {hasMore && (
               <button
                 onClick={() => setVisibleCount(c => c + PAGE_SIZE)}

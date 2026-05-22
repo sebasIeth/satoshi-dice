@@ -1,3 +1,5 @@
+import type { ChainKey } from './chains';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export interface BetPayload {
@@ -9,6 +11,7 @@ export interface BetPayload {
   isWin: boolean;
   payout: number;
   txHash: string;
+  chain: ChainKey;
 }
 
 export interface BetRecord extends BetPayload {
@@ -22,7 +25,6 @@ export async function saveBet(bet: BetPayload): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(bet),
   });
-  // 409 = duplicate txHash, bet already saved — not an error
   if (!res.ok && res.status !== 409) {
     throw new Error(`Save bet failed (${res.status})`);
   }
@@ -32,11 +34,12 @@ export interface RelayParams {
   player: string;
   target: number;
   isUnder: boolean;
-  amount: string; // bigint as string
+  amount: string;
   deadline: number;
   v: number;
   r: string;
   s: string;
+  chain: ChainKey;
 }
 
 export async function relayRoll(params: RelayParams): Promise<{ txHash: string }> {
@@ -52,7 +55,6 @@ export async function relayRoll(params: RelayParams): Promise<{ txHash: string }
         const data = await res.json().catch(() => ({}));
         const details = data.details ? ` | ${JSON.stringify(data.details)}` : '';
         const errorMsg = (data.error || `Relay failed (${res.status})`) + details;
-        // Only retry on 500+ server errors, not 4xx client errors
         if (res.status >= 500 && attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
           continue;
@@ -61,7 +63,6 @@ export async function relayRoll(params: RelayParams): Promise<{ txHash: string }
       }
       return res.json();
     } catch (err: any) {
-      // Retry on network failures (fetch throws on network errors)
       if (err.name !== 'Error' || !err.message?.startsWith('Relay failed')) {
         if (attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
@@ -74,10 +75,11 @@ export async function relayRoll(params: RelayParams): Promise<{ txHash: string }
   throw new Error('Relay failed after retries');
 }
 
-export async function fetchBets(limit = 50, player?: string): Promise<BetRecord[]> {
+export async function fetchBets(limit = 50, player?: string, chain?: ChainKey): Promise<BetRecord[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) });
     if (player) params.set('player', player);
+    if (chain) params.set('chain', chain);
     const res = await fetch(`${API_BASE}/bets?${params}`);
     if (!res.ok) return [];
     return await res.json();

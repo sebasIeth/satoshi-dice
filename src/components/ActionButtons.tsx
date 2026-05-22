@@ -12,9 +12,13 @@ interface ActionButtonsProps {
     isRolling?: boolean;
     payoutUnder: string;
     payoutOver: string;
+    token: string;
+    isNative: boolean;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, targetValue, disabledUnder, disabledOver, isRolling, payoutUnder, payoutOver }) => {
+const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, targetValue, disabledUnder, disabledOver, isRolling, payoutUnder, payoutOver, token, isNative }) => {
+    const prefix = isNative ? '' : '$';
+
     return (
         <div className="w-full flex gap-3 px-4">
             {/* ROLL OVER (left, red) */}
@@ -44,7 +48,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, 
                             <span className="text-2xl font-mono font-bold text-white">&gt; {targetValue}</span>
                             <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-gray-500 font-mono">Win:</span>
-                                <span className="text-sm text-red-400 font-bold font-mono">${payoutOver}</span>
+                                <span className="text-sm text-red-400 font-bold font-mono">{prefix}{payoutOver}</span>
+                                {isNative && <span className="text-[8px] text-gray-600 font-mono">{token}</span>}
                             </div>
                         </>
                     )}
@@ -78,7 +83,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onRollUnder, onRollOver, 
                             <span className="text-2xl font-mono font-bold text-white">&lt; {targetValue}</span>
                             <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-gray-500 font-mono">Win:</span>
-                                <span className="text-sm text-green-400 font-bold font-mono">${payoutUnder}</span>
+                                <span className="text-sm text-green-400 font-bold font-mono">{prefix}{payoutUnder}</span>
+                                {isNative && <span className="text-[8px] text-gray-600 font-mono">{token}</span>}
                             </div>
                         </>
                     )}

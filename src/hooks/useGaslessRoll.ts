@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { useAccount, useReadContract, useSignTypedData } from 'wagmi';
 import { readContract } from '@wagmi/core';
 import { parseUnits } from 'viem';
-import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS, DICE_GAME_ABI } from '../abis';
-import { activeChain, config } from '../config';
+import { USDC_ABI, DICE_GAME_ABI } from '../abis';
+import { config } from '../config';
 import { relayRoll } from '../api';
-
-const FEE_AMOUNT = 10000n; // 0.01 USDC (6 decimals) — fallback
+import type { ChainConfig } from '../chains';
 
 const PERMIT_TYPES = {
   Permit: [
@@ -18,7 +17,7 @@ const PERMIT_TYPES = {
   ],
 } as const;
 
-export function useGaslessRoll() {
+export function useGaslessRoll(chainConfig: ChainConfig) {
   const { address } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
 
@@ -26,20 +25,26 @@ export function useGaslessRoll() {
   const [relayTxHash, setRelayTxHash] = useState<`0x${string}` | undefined>();
   const [relayError, setRelayError] = useState<Error | null>(null);
 
+  const tokenAddress = chainConfig.tokenAddress!;
+  const diceGameAddress = chainConfig.diceGameAddress;
+  const chainId = chainConfig.chain.id;
+
   // Read USDC name for EIP-712 domain
   const { data: usdcName } = useReadContract({
-    address: USDC_ADDRESS,
+    address: tokenAddress,
     abi: USDC_ABI,
     functionName: 'name',
-    chainId: activeChain.id,
+    chainId,
+    query: { enabled: !chainConfig.isNative },
   });
 
   // Read fee from contract
   const { data: contractFee } = useReadContract({
-    address: DICE_GAME_ADDRESS,
+    address: diceGameAddress,
     abi: DICE_GAME_ABI,
     functionName: 'fee',
-    chainId: activeChain.id,
+    chainId,
+    query: { enabled: !chainConfig.isNative },
   });
 
   const gaslessRoll = async (target: number, isUnder: boolean, betAmount: number) => {
@@ -51,21 +56,22 @@ export function useGaslessRoll() {
     setRelayError(null);
 
     try {
-      const amount = parseUnits(betAmount.toString(), 6);
-      const fee = contractFee ?? FEE_AMOUNT;
-      const permitValue = amount + fee; // Sign permit for amount + fee
-      const deadline = Math.floor(Date.now() / 1000) + 600; // 10 minutes
+      const amount = parseUnits(betAmount.toString(), chainConfig.decimals);
+      const fallbackFee = parseUnits(chainConfig.fee.toString(), chainConfig.decimals);
+      const fee = contractFee ?? fallbackFee;
+      const permitValue = amount + fee;
+      const deadline = Math.floor(Date.now() / 1000) + 600;
 
-      // Read fresh nonce directly from chain to avoid stale cache (with retries)
+      // Read fresh nonce
       let freshNonce: bigint | undefined;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           freshNonce = await readContract(config, {
-            address: USDC_ADDRESS,
+            address: tokenAddress,
             abi: USDC_ABI,
             functionName: 'nonces',
             args: [address],
-            chainId: activeChain.id,
+            chainId,
           });
           break;
         } catch {
@@ -81,27 +87,25 @@ export function useGaslessRoll() {
         domain: {
           name: usdcName,
           version: '2',
-          chainId: activeChain.id,
-          verifyingContract: USDC_ADDRESS,
+          chainId,
+          verifyingContract: tokenAddress,
         },
         types: PERMIT_TYPES,
         primaryType: 'Permit',
         message: {
           owner: address,
-          spender: DICE_GAME_ADDRESS,
+          spender: diceGameAddress,
           value: permitValue,
           nonce: freshNonce,
           deadline: BigInt(deadline),
         },
       });
 
-      // Split signature into v, r, s
       const r = `0x${signature.slice(2, 66)}` as `0x${string}`;
       const s = `0x${signature.slice(66, 130)}` as `0x${string}`;
       const vHex = signature.slice(130, 132);
       const v = parseInt(vHex, 16);
 
-      // Send to relayer
       const { txHash } = await relayRoll({
         player: address,
         target,
@@ -111,6 +115,7 @@ export function useGaslessRoll() {
         v,
         r,
         s,
+        chain: chainConfig.key,
       });
 
       setRelayTxHash(txHash as `0x${string}`);

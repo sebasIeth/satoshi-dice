@@ -6,8 +6,8 @@ const router = Router();
 // POST /api/bets - Save a new bet
 router.post('/', async (req, res) => {
   try {
-    const { player, amount, result, target, direction, isWin, payout, txHash } = req.body;
-    const bet = await Bet.create({ player, amount, result, target, direction, isWin, payout, txHash });
+    const { player, amount, result, target, direction, isWin, payout, txHash, chain } = req.body;
+    const bet = await Bet.create({ player, amount, result, target, direction, isWin, payout, txHash, chain: chain || 'base' });
     res.status(201).json(bet);
   } catch (err: any) {
     // Duplicate txHash → 409 Conflict
@@ -27,6 +27,9 @@ router.get('/', async (req, res) => {
     const filter: any = {};
     if (req.query.player) {
       filter.player = (req.query.player as string).toLowerCase();
+    }
+    if (req.query.chain) {
+      filter.chain = req.query.chain;
     }
     const bets = await Bet.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
     res.json(bets);

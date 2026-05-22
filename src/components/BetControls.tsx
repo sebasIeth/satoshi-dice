@@ -4,15 +4,23 @@ import { Lock, Loader2 } from 'lucide-react';
 
 interface BetControlsProps {
     betAmount: number;
+    fee: number;
+    token: string;
+    isNative: boolean;
     targetValue: number;
     isRolling?: boolean;
     isWin?: boolean | null;
 }
 
-const BetControls: React.FC<BetControlsProps> = ({ isRolling, isWin }) => {
+const BetControls: React.FC<BetControlsProps> = ({ betAmount, fee, token, isNative, isRolling, isWin }) => {
+    const total = betAmount + fee;
+    const totalDisplay = isNative ? total.toFixed(8) : total.toFixed(2);
+    const betDisplay = isNative ? betAmount.toFixed(8) : betAmount.toFixed(2);
+    const feeDisplay = isNative ? fee.toFixed(8) : fee.toFixed(2);
+
     return (
         <div className="w-full max-w-sm flex gap-3 px-4 items-stretch">
-            {/* Amount Display (Fixed) */}
+            {/* Amount Display */}
             <div className="flex-1 bg-surface p-3 rounded-xl flex items-center border border-white/10 shadow-lg">
                 <div>
                     <div className="flex items-center gap-1.5 mb-1">
@@ -23,10 +31,10 @@ const BetControls: React.FC<BetControlsProps> = ({ isRolling, isWin }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-primary font-bold text-sm">USDC</span>
-                        <span className="text-white font-mono font-bold text-lg">0.11</span>
+                        <span className="text-primary font-bold text-sm">{token}</span>
+                        <span className="text-white font-mono font-bold text-lg">{totalDisplay}</span>
                     </div>
-                    <span className="text-[9px] text-gray-500 font-mono">0.10 bet + 0.01 fee</span>
+                    <span className="text-[9px] text-gray-500 font-mono">{betDisplay} bet + {feeDisplay} fee</span>
                 </div>
             </div>
 

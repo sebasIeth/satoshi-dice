@@ -3,19 +3,26 @@ import { Building2, Settings } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
-import { USDC_ADDRESS, USDC_ABI, DICE_GAME_ADDRESS, DICE_GAME_ABI } from '../abis';
-import { activeChain } from '../config';
+import { USDC_ABI, DICE_GAME_ABI, DICE_GAME_NATIVE_ABI } from '../abis';
+import { useBalance } from 'wagmi';
+import type { ChainConfig } from '../chains';
 import OwnerPanel from './OwnerPanel';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    chainConfig: ChainConfig;
+}
+
+const Header: React.FC<HeaderProps> = ({ chainConfig }) => {
     const { address, isConnected, isConnecting } = useAccount();
     const [ownerPanelOpen, setOwnerPanelOpen] = useState(false);
 
+    const gameAbi = chainConfig.isNative ? DICE_GAME_NATIVE_ABI : DICE_GAME_ABI;
+
     const { data: contractOwner } = useReadContract({
-        address: DICE_GAME_ADDRESS,
-        abi: DICE_GAME_ABI,
+        address: chainConfig.diceGameAddress,
+        abi: gameAbi,
         functionName: 'owner',
-        chainId: activeChain.id,
+        chainId: chainConfig.chain.id,
     });
 
     const isOwner = !!(
@@ -24,16 +31,30 @@ const Header: React.FC = () => {
         address.toLowerCase() === (contractOwner as string).toLowerCase()
     );
 
-    const { data: bankroll } = useReadContract({
-        address: USDC_ADDRESS,
+    // ERC20 bankroll
+    const { data: erc20Bankroll } = useReadContract({
+        address: chainConfig.tokenAddress!,
         abi: USDC_ABI,
         functionName: 'balanceOf',
-        args: [DICE_GAME_ADDRESS],
-        chainId: activeChain.id,
-        query: { refetchInterval: 5000 }
+        args: [chainConfig.diceGameAddress],
+        chainId: chainConfig.chain.id,
+        query: { enabled: !chainConfig.isNative, refetchInterval: 5000 },
     });
 
-    const bankrollAmount = bankroll ? parseFloat(formatUnits(bankroll, 6)) : 0;
+    // Native bankroll
+    const { data: nativeBankroll } = useBalance({
+        address: chainConfig.diceGameAddress,
+        chainId: chainConfig.chain.id,
+        query: { enabled: chainConfig.isNative, refetchInterval: 5000 },
+    });
+
+    const bankrollAmount = chainConfig.isNative
+        ? (nativeBankroll ? parseFloat(nativeBankroll.formatted) : 0)
+        : (erc20Bankroll ? parseFloat(formatUnits(erc20Bankroll, chainConfig.decimals)) : 0);
+
+    const bankrollDisplay = chainConfig.isNative
+        ? `${bankrollAmount.toFixed(6)} ${chainConfig.token}`
+        : `$${bankrollAmount.toFixed(2)}`;
 
     return (
         <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-background/80 backdrop-blur-md sticky top-0 z-50">
@@ -48,14 +69,13 @@ const Header: React.FC = () => {
                     </h1>
                     <div className="flex items-center gap-1 text-[11px] text-gray-400 font-mono mt-1">
                         <Building2 className="w-3.5 h-3.5" />
-                        <span>Bank: ${bankrollAmount.toFixed(2)}</span>
+                        <span>Bank: {bankrollDisplay}</span>
                     </div>
                 </div>
             </div>
 
             {/* Wallet / Connection */}
             <div className="flex items-center gap-2">
-                {/* Owner settings button */}
                 {isOwner && (
                     <button
                         onClick={() => setOwnerPanelOpen(true)}
@@ -77,7 +97,7 @@ const Header: React.FC = () => {
             </div>
 
             {isOwner && (
-                <OwnerPanel isOpen={ownerPanelOpen} onClose={() => setOwnerPanelOpen(false)} />
+                <OwnerPanel isOpen={ownerPanelOpen} onClose={() => setOwnerPanelOpen(false)} chainConfig={chainConfig} />
             )}
         </header>
     );
